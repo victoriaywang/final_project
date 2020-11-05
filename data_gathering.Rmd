@@ -16,7 +16,8 @@ library(lubridate)
 Datasets
 ```{r}
 acled_data <- read_xlsx("raw_data/USA_2020_Oct31_new.xlsx") %>%
-  clean_names()
+  clean_names() %>%
+  mutate(assoc_actor_1 = as.factor(assoc_actor_1))
 ```
 
 Violence
@@ -63,8 +64,38 @@ ggplot(comparison, aes(x = reorder(sub_event_type, count),
 
 fatalities <- acled_data %>%
   filter(fatalities > 0)
+
+levels(acled_data$assoc_actor_1)
   
 ```
+
+General Protest Info
+```{r}
+protesters_type <- levels(acled_data$assoc_actor_1)
+
+acled_data_new <- acled_data %>%
+  select(-c(iso, event_id_cnty, event_id_no_cnty, year, time_precision, region, 
+            country, admin3, geo_precision, source_scale, source)) %>%
+  mutate(assoc_actor_1 = as.character(assoc_actor_1)) %>%
+  mutate(blm = ifelse(str_detect(assoc_actor_1, 
+                                 regex(c("BLM", "NAACP", "African American"), 
+                                       ignore_case = TRUE)), 
+                      yes = TRUE, no = FALSE)) %>%
+  filter(blm == TRUE)
+         
+
+acled_data_new <- acled_data %>%
+  select(-c(iso, event_id_cnty, event_id_no_cnty, year, time_precision, region, 
+            country, admin3, geo_precision, source_scale, source)) %>%
+  mutate(assoc_actor_1 = as.character(assoc_actor_1)) %>%
+  mutate(blm = ifelse(str_detect(assoc_actor_1, 
+                                 regex(c("BLM"), 
+                                       ignore_case = TRUE)), 
+                      yes = TRUE, no = FALSE)) %>%
+  filter(blm == TRUE)
+         
+```
+
 
 Mapping
 ```{r}
