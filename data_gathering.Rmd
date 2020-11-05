@@ -8,15 +8,18 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(readxl)
 library(janitor)
-countlove_data <- read_csv("raw_data/protests.csv") %>%
-  clean_names()
+library(tidycensus)
+library(leaflet)
+library(lubridate)
 ```
 
+Datasets
 ```{r}
 acled_data <- read_xlsx("raw_data/USA_2020_Oct31_new.xlsx") %>%
   clean_names()
 ```
 
+Violence
 ```{r}
 violence <- acled_data %>%
   select(sub_event_type) %>%
@@ -57,6 +60,32 @@ ggplot(comparison, aes(x = reorder(sub_event_type, count),
     scale_color_manual(breaks = c("all", "blm"),
                        labels = c("All Protests", "BLM")) + 
     theme_classic()
+
+fatalities <- acled_data %>%
+  filter(fatalities > 0)
   
+```
+
+Mapping
+```{r}
+census_api_key("c272499f01a005c075c74055db3526e316e1836d")
+
+rural <- get_decennial(geography = "state",
+                       variables = c("P001001", "P002005"),
+                       year = 2010,
+                       output = "wide",
+                       geometry = TRUE) %>%
+  rename(state = NAME) %>%
+  mutate(prop_rural = P002005/P001001,
+         state = reorder(state, prop_rural))
+
+subset <- acled_data %>%
+  mutate(event_date = ymd(event_date)) %>%
+  filter(event_date <= "2020-06-01")
+
+leaflet(rural) %>%
+  addTiles() %>%
+  addCircles(lng = subset$longitude, lat = subset$latitude)
+
 ```
 

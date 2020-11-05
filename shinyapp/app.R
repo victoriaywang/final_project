@@ -9,8 +9,10 @@
 
 library(shiny)
 library(tidyverse)
+library(leaflet)
 acled_data <- readRDS("acled_data.RDS")
 violence_comparison <- readRDS("violence_comparison.RDS")
+rural <- readRDS("rural.RDS")
 
 # Define UI for application that draws a histogram
 ui <- navbarPage(
@@ -18,7 +20,7 @@ ui <- navbarPage(
     tabPanel("Model",
              fluidPage(
                  titlePanel("Protest Visualization"),
-                 plotOutput("distPlot"))
+                 leafletOutput("mapPlot"))
     ),
     tabPanel("Discussion",
              titlePanel("Discussion"),
@@ -44,6 +46,15 @@ server <- function(input, output) {
             scale_color_manual(breaks = c("all", "blm"),
                                labels = c("All Protests", "BLM")) + 
             theme_classic()
+    })
+    output$mapPlot <- renderLeaflet({
+        subset <- acled_data %>%
+            mutate(event_date = ymd(event_date)) %>%
+            filter(event_date <= "2020-06-01")
+        
+        leaflet(rural) %>%
+            addTiles() %>%
+            addCircles(lng = subset$longitude, lat = subset$latitude)
     })
 }
 
