@@ -13,7 +13,7 @@ countlove_data <- read_csv("raw_data/protests.csv") %>%
 ```
 
 ```{r}
-acled_data <- read_xlsx("raw_data/USA_2020_Oct31.xlsx") %>%
+acled_data <- read_xlsx("raw_data/USA_2020_Oct31_new.xlsx") %>%
   clean_names()
 ```
 

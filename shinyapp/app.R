@@ -17,22 +17,12 @@ ui <- navbarPage(
     "Final Project Milestone #5",
     tabPanel("Model",
              fluidPage(
-                 titlePanel("Education Credentials and Parents' 
-                            Immigration History"),
+                 titlePanel("Protest Visualization"),
                  plotOutput("distPlot"))
     ),
     tabPanel("Discussion",
              titlePanel("Discussion"),
-             p("I have created a few different data visualizations, but I was
-               having issues uploading them to the ShinyApp — they can be 
-               found in the RMD file for this project. I have included the one
-               plot that I worked on during our recitation section, which
-               looks at educational credentials and parents' immigration
-               history. The dataset used for that plot was from the 
-               Immigration and Intergenerational Mobility in Metropolitan 
-               Los Angeles (IIMMLA) study. The other plots that I made (but 
-               could not include in this ShinyApp) come from Opportunity 
-               Insights, which I believe takes data from the Census.")),
+             p("Text")),
     tabPanel("About", 
              titlePanel("About"),
              h3("About Me"),
