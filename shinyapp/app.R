@@ -13,48 +13,55 @@ library(leaflet)
 acled_data <- readRDS("acled_data.RDS")
 violence_comparison <- readRDS("violence_comparison.RDS")
 rural <- readRDS("rural.RDS")
+acled_data_11_6 <- readRDS("acled_data_11_6.RDS")
 
-# Define UI for application that draws a histogram
 ui <- navbarPage(
-    "Final Project Milestone #5",
-    tabPanel("Model",
+    "Final Project",
+    tabPanel("Violence at Protests",
              fluidPage(
-                 titlePanel("Protest Visualization"),
-                 leafletOutput("mapPlot"))
-    ),
-    tabPanel("Discussion",
-             titlePanel("Discussion"),
-             p("Text")),
-    tabPanel("About", 
-             titlePanel("About"),
-             h3("About Me"),
-             p("My name is Victoria Wang, and I am a first year at Harvard.
-                You can reach me at victoriawang@college.harvard.edu.")))
+                 titlePanel("Model Title"),
+                 sidebarLayout(
+                     sidebarPanel(
+                         selectInput(
+                             "plot_type",
+                             "Type of Protest",
+                             c("BLM" = "blm", 
+                               "Militia" = "militia", 
+                               "Pro-Police" = "pro_police",
+                               "Labor" = "labor")
+                         )),
+                     mainPanel(plotOutput("protestPlot")))
+             )),
+    tabPanel("Discussion"),
+    tabPanel("About"))
 
 # Define server logic required to draw a histogram
 server <- function(input, output) {
 
-    output$distPlot <- renderPlot({
-        ggplot(comparison, aes(x = reorder(sub_event_type, count), 
-                               y = count, fill = type)) +
-            geom_col(position = "identity") + 
-            labs(title = "Violence at Protests",
-                 subtitle = "Summer and Fall 2020",
-                 x = "Type of Protest",
-                 y = "Number of Protests") + 
-            coord_flip() + 
-            scale_color_manual(breaks = c("all", "blm"),
-                               labels = c("All Protests", "BLM")) + 
-            theme_classic()
-    })
-    output$mapPlot <- renderLeaflet({
-        subset <- acled_data %>%
-            mutate(event_date = ymd(event_date)) %>%
-            filter(event_date <= "2020-06-01")
-        
-        leaflet(rural) %>%
-            addTiles() %>%
-            addCircles(lng = subset$longitude, lat = subset$latitude)
+    output$protestPlot <- renderPlot({
+        violence_plot <- function(ps){
+            acled_data_11_6 %>%
+                filter(sub_event_type %in% c("Peaceful protest", "Protest with intervention",
+                                             "Violent demonstration", "Mob violence")) %>%
+                filter({{ps}} == TRUE) %>%
+                select(sub_event_type, {{ps}}) %>%
+                group_by(sub_event_type) %>%
+                summarize(count = n(), .groups = "drop") %>%
+                ggplot(aes(x = factor(sub_event_type, levels = c("Mob violence",
+                                                                 "Violent demonstration",
+                                                                 "Protest with intervention",
+                                                                 "Peaceful protest")), 
+                           y = count)) + 
+                  geom_col() + 
+                  labs(title = "Violence during Protests",
+                     subtitle = "Summer and Fall 2020",
+                     x = "Type of Protest",
+                     y = "Number of Protests") +
+                  scale_x_discrete(drop = FALSE) + 
+                  coord_flip() + 
+                  theme_classic()
+        }
+        violence_plot(input$plot_type)
     })
 }
 
