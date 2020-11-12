@@ -10,30 +10,61 @@
 library(shiny)
 library(tidyverse)
 library(leaflet)
+library(readxl)
+library(janitor)
+library(tidycensus)
+library(lubridate)
 acled_data <- readRDS("acled_data.RDS")
-violence_comparison <- readRDS("violence_comparison.RDS")
 rural <- readRDS("rural.RDS")
 acled_data_11_6 <- readRDS("acled_data_11_6.RDS")
 
 ui <- navbarPage(
     "Final Project",
+    tabPanel("Maps",
+        sidebarLayout(
+            sidebarPanel(
+                selectInput("var", 
+                            label = "Type of Protest",
+                            choices = list("Peaceful protest", 
+                                           "Protest with intervention",
+                                           "Violent demonstration", 
+                                           "Mob violence"),
+                            selected = "Peaceful protest"),
+                
+                dateRangeInput("daterange1", "Date range:",
+                               start = "2020-05-24",
+                               end = "2020-10-31")
+            ),
+            
+            mainPanel(leafletOutput("mapPlot"))
+        ),
+    ),
     tabPanel("Violence at Protests",
-             fluidPage(
                  titlePanel("Model Title"),
                  sidebarLayout(
                      sidebarPanel(
                          selectInput(
                              "plot_type",
-                             "Type of Protest",
+                             "Subject of Protest",
                              c("BLM" = "blm", 
                                "Militia" = "militia", 
                                "Pro-Police" = "pro_police",
                                "Labor" = "labor")
                          )),
-                     mainPanel(plotOutput("protestPlot")))
-             )),
+                     mainPanel(plotOutput("protestPlot"))),
+                  p("I have written a function to create this graph, but for 
+                    some reason it is not working! However, I asked a question 
+                    about it in the final-project channel in the Slack and 
+                    am hoping to figure out what is going wrong!")
+             ),
     tabPanel("Discussion"),
-    tabPanel("About"))
+    tabPanel("About", 
+             titlePanel("About"),
+             h3("Project Background and Motivations"),
+             p("Hello, this is where I talk about my project."),
+             h3("About Me"),
+             p("My name is Victoria Wang. 
+               You can reach me at victoriawang@college.harvard.edu.")))
 
 # Define server logic required to draw a histogram
 server <- function(input, output) {
@@ -62,6 +93,22 @@ server <- function(input, output) {
                   theme_classic()
         }
         violence_plot(input$plot_type)
+    })
+    
+    output$mapPlot <- renderLeaflet({
+        subset <- acled_data_11_6 %>%
+            mutate(event_date = ymd(event_date)) %>%
+            filter(event_date %in% (input$daterange1[1]:input$daterange1[2])) %>%
+            filter(sub_event_type == input$var)
+        
+        pal <- 
+            colorFactor(palette = "Reds",
+                        levels = c("Peaceful protest", "Protest with intervention", 
+                                   "Violent demonstration", "Mob violence"))
+        
+        leaflet(rural) %>%
+            addTiles() %>%
+            addCircleMarkers(lng = subset$longitude, lat = subset$latitude, radius = 0.1)
     })
 }
 

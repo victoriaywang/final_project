@@ -1,0 +1,67 @@
+---
+title: "Outtakes"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Violence -- BLM vs All Protests
+```{r}
+violence <- acled_data %>%
+  select(sub_event_type) %>%
+  mutate(sub_event_type = as.factor(sub_event_type)) %>%
+  filter(sub_event_type == c("Peaceful protest", "Protest with intervention",
+                            "Excessive force against protesters",
+                            "Violent demonstration",
+                            "Mob violence")) %>%
+  group_by(sub_event_type) %>%
+  summarize(count = n())
+
+violence_BLM <- acled_data %>%
+  filter(assoc_actor_1 == "BLM: Black Lives Matter") %>%
+  select(sub_event_type) %>%
+  mutate(sub_event_type = as.factor(sub_event_type)) %>%
+  filter(sub_event_type == c("Peaceful protest", "Protest with intervention",
+                            "Excessive force against protesters",
+                            "Violent demonstration",
+                            "Mob violence")) %>%
+  group_by(sub_event_type) %>%
+  summarize(count = n(), .groups = "drop")
+
+comparison <- inner_join(violence, violence_BLM, by = "sub_event_type") %>%
+  rename(all = count.x,
+         blm = count.y) %>%
+  pivot_longer(cols = all:blm,
+               names_to = "type",
+               values_to = "count")
+
+ggplot(comparison, aes(x = reorder(sub_event_type, count), 
+                       y = count, fill = type)) +
+    geom_col(position = "identity") + 
+    labs(title = "Violence at Protests",
+         subtitle = "Summer and Fall 2020",
+         x = "Type of Protest",
+         y = "Number of Protests") + 
+    coord_flip() + 
+    scale_color_manual(breaks = c("all", "blm"),
+                       labels = c("All Protests", "BLM")) + 
+    theme_classic()
+  
+```
+
+Data gathering
+
+```{r}
+acled_data_new <- acled_data %>%
+  select(-c(iso, event_id_cnty, event_id_no_cnty, year, time_precision, region, 
+            country, admin3, geo_precision, source_scale, source)) %>%
+  mutate(assoc_actor_1 = as.character(assoc_actor_1)) %>%
+  mutate(blm = ifelse(str_detect(assoc_actor_1, 
+                                 regex(c("BLM", "NAACP", "African American"), 
+                                       ignore_case = TRUE)), 
+                      yes = TRUE, no = FALSE)) %>%
+  filter(blm == TRUE)
+```
+
