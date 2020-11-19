@@ -17,6 +17,7 @@ library(lubridate)
 acled_data <- readRDS("acled_data.RDS")
 rural <- readRDS("rural.RDS")
 acled_data_11_6 <- readRDS("acled_data_11_6.RDS")
+acled_data_11_12 <- readRDS("acled_data_11_12.RDS")
 
 ui <- navbarPage(
     "Final Project",
@@ -43,14 +44,13 @@ ui <- navbarPage(
                  titlePanel("Model Title"),
                  sidebarLayout(
                      sidebarPanel(
-                         selectInput(
-                             "plot_type",
-                             "Subject of Protest",
-                             c("BLM" = "blm", 
-                               "Militia" = "militia", 
-                               "Pro-Police" = "pro_police",
-                               "Labor" = "labor")
-                         )),
+                         selectInput("plot_type",
+                                     label = "Subject of Protest",
+                                     choices = list("BLM" = "blm", 
+                                                 "Militia" = "militia", 
+                                                 "Pro-Police" = "pro_police",
+                                                 "Labor" = "labor")
+                                     )),
                      mainPanel(plotOutput("protestPlot"))),
                   p("I have written a function to create this graph, but for 
                     some reason it is not working! However, I asked a question 
@@ -71,11 +71,11 @@ server <- function(input, output) {
 
     output$protestPlot <- renderPlot({
         violence_plot <- function(ps){
-            acled_data_11_6 %>%
+            acled_data_11_12 %>%
                 filter(sub_event_type %in% c("Peaceful protest", "Protest with intervention",
                                              "Violent demonstration", "Mob violence")) %>%
-                filter({{ps}} == TRUE) %>%
-                select(sub_event_type, {{ps}}) %>%
+                filter(subject == ps & group_boolean == TRUE) %>%
+                select(sub_event_type) %>%
                 group_by(sub_event_type) %>%
                 summarize(count = n(), .groups = "drop") %>%
                 ggplot(aes(x = factor(sub_event_type, levels = c("Mob violence",
@@ -83,17 +83,17 @@ server <- function(input, output) {
                                                                  "Protest with intervention",
                                                                  "Peaceful protest")), 
                            y = count)) + 
-                  geom_col() + 
-                  labs(title = "Violence during Protests",
+                geom_col() + 
+                labs(title = "Violence during Protests",
                      subtitle = "Summer and Fall 2020",
                      x = "Type of Protest",
                      y = "Number of Protests") +
-                  scale_x_discrete(drop = FALSE) + 
-                  coord_flip() + 
-                  theme_classic()
+                scale_x_discrete(drop = FALSE) + 
+                coord_flip() + 
+                theme_classic()
         }
         violence_plot(input$plot_type)
-    })
+        })
     
     output$mapPlot <- renderLeaflet({
         subset <- acled_data_11_6 %>%

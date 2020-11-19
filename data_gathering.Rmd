@@ -71,13 +71,40 @@ acled_data_new <- acled_data %>%
   mutate(all_actors = TRUE,
          all_violence = TRUE) %>%
   rename("district" = admin2) %>%
-  transform(district = paste(district, admin1, sep=", "))
+  transform(district = paste(district, admin1, sep=", ")) %>%
+  pivot_longer(cols = blm:democrat,
+               names_to = "subject",
+               values_to = "group_boolean")
 
 ```
 
 
 Plotting Violence by Protest Subject
 ```{r}
+
+# regular
+acled_data_new %>%
+  filter(sub_event_type %in% c("Peaceful protest", "Protest with intervention",
+                               "Violent demonstration", "Mob violence")) %>%
+  filter(blm == TRUE) %>%
+  select(sub_event_type, blm) %>%
+  group_by(sub_event_type) %>%
+  summarize(count = n(), .groups = "drop") %>%
+  ggplot(aes(x = factor(sub_event_type, levels = c("Mob violence",
+                                                   "Violent demonstration",
+                                                   "Protest with intervention",
+                                                   "Peaceful protest")), 
+             y = count)) + 
+    geom_col() + 
+    labs(title = "Violence during Protests",
+         subtitle = "Summer and Fall 2020",
+         x = "Type of Protest",
+         y = "Number of Protests") +
+    scale_x_discrete(drop = FALSE) + 
+    coord_flip() + 
+    theme_classic()
+
+# function w input ps
 violence_plot <- function(ps){
   acled_data_new %>%
   filter(sub_event_type %in% c("Peaceful protest", "Protest with intervention",
@@ -100,7 +127,7 @@ violence_plot <- function(ps){
     coord_flip() + 
     theme_classic()
 }
-violence_plot(blm)
+violence_plot(militia)
 ```
 
 Mapping
@@ -135,7 +162,7 @@ pal <-
 Prepping ACLED data for violence modeling
 ```{r}
 acled_modeling <- acled_data_new %>%
-  filter(blm == TRUE) %>%
+  filter(subject == "blm") %>%
   mutate(violence = ifelse(sub_event_type == "Peaceful protest", 
                            yes = FALSE, no = TRUE))
 
@@ -186,33 +213,42 @@ gini_final <- gini_clean %>%
 
 model_violence_gini <- model_violence %>%
   left_join(gini_final, by = "district") %>%
-  select(district, violence, gini_score)
+  select(district, violence, gini_score, proportion_violent)
 
 fit_obj_gini <- stan_glm(data = model_violence_gini,
-                    gini_score ~ violence - 1,
+                    proportion_violent ~ gini_score - 1,
                     refresh = 0)
 
-new_obs <- tibble(violence = c(TRUE, FALSE))
+new_obs_gini <- tibble(gini_score = c(0.3288, 0.4238, 0.4489, 0.6592))
 
-pp_gini <- posterior_predict(fit_obj_gini, newdata = new_obs) %>%
+pp_gini <- posterior_predict(fit_obj_gini, newdata = new_obs_gini) %>%
   as_tibble() %>%
   mutate_all(as.numeric) %>%
-  rename("violent" = `1`,
-         "not_violent" = `2`) %>%
-  pivot_longer(cols = violent:not_violent,
-               names_to = "violence",
-               values_to = "gini_score")
+  rename("min" = `1`,
+         "low" = `2`,
+         "high" = `3`,
+         "max" = `4`) %>%
+  pivot_longer(cols = min:max,
+               names_to = "gini",
+               values_to = "proportion_violent")
 
-pp_gini %>%
-  group_by(violence) %>%
-  summarize(mean_score = mean(gini_score), .groups = "drop")
+pp_gini_mean <- pp_gini %>%
+  group_by(gini) %>%
+  summarize(mean_violence = mean(proportion_violent), .groups = "drop") %>%
+  arrange(mean_violence)
 
-ggplot(pp, aes(x = gini_score, fill = violence)) +
+pp_gini_mean$mean_violence
+
+ggplot(pp_gini, aes(x = proportion_violent, fill = gini)) +
   geom_histogram(aes(y = after_stat(count/sum(count))), bins = 75,
                  color = "white", position = "identity", alpha = 0.5) +
+  geom_vline(xintercept = pp_gini_mean$mean_violence[1]) +
+  geom_vline(xintercept = pp_gini_mean$mean_violence[2]) +
+  geom_vline(xintercept = pp_gini_mean$mean_violence[3]) +
+  geom_vline(xintercept = pp_gini_mean$mean_violence[4]) +
   scale_y_continuous(labels = scales::percent_format()) + 
-  labs(title = "Posterior Distribution for Gini Index Score",
-       x = "Gini Index Score",
+  labs(title = "Posterior Distribution for Violence based on Gini",
+       x = "Proportion Violent",
        y = "Probability") +
   theme_bw()
 
@@ -237,23 +273,27 @@ poverty_final <- poverty_clean %>%
 
 model_violence_poverty <- model_violence %>%
   left_join(poverty_final, by = "district") %>%
-  select(district, violence, poverty) %>%
+  select(district, violence, poverty, proportion_violent) %>%
   drop_na(poverty)
 
 fit_obj_poverty <- stan_glm(data = model_violence_poverty,
-                    poverty ~ violence - 1,
+                    proportion_violent ~ poverty - 1,
                     refresh = 0)
 
-pp_poverty <- posterior_predict(fit_obj_poverty, newdata = new_obs) %>%
+quantile(model_violence_poverty$poverty)
+
+new_obs_poverty <- tibble(poverty = c(8.7, 15.5))
+
+pp_poverty <- posterior_predict(fit_obj_poverty, newdata = new_obs_poverty) %>%
   as_tibble() %>%
   mutate_all(as.numeric) %>%
-  rename("violent" = `1`,
-         "not_violent" = `2`) %>%
-  pivot_longer(cols = violent:not_violent,
-               names_to = "violence",
-               values_to = "poverty")
+  rename("low" = `1`,
+         "high" = `2`) %>%
+  pivot_longer(cols = low:high,
+               names_to = "poverty",
+               values_to = "proportion_violent")
 
-ggplot(pp_poverty, aes(x = poverty, fill = violence)) +
+ggplot(pp_poverty, aes(x = proportion_violent, fill = poverty)) +
   geom_histogram(aes(y = after_stat(count/sum(count))), bins = 75,
                  color = "white", position = "identity", alpha = 0.5) +
   scale_y_continuous(labels = scales::percent_format()) + 
@@ -262,5 +302,74 @@ ggplot(pp_poverty, aes(x = poverty, fill = violence)) +
        y = "Probability") +
   theme_bw()
 
+```
+
+```{r}
+income <- read.csv("raw_data/census_income.csv") %>%
+  select(NAME, S1901_C01_012E)
+
+income_clean <- income[-1 ,] %>%
+  rename("district" = NAME, 
+         "income" = S1901_C01_012E) %>%
+  mutate(income = as.double(income)) %>%
+  separate(col = district, sep = ", ", into = c("district", "state")) 
+
+income_final <- income_clean %>%
+  mutate(district = sub(income_clean$district, pattern = " [[:alpha:]]*$", 
+                        replacement = "")) %>%
+  select(district, income, state) %>%
+  transform(district = paste(district, state, sep = ", "))
+
+model_violence_income <- model_violence %>%
+  left_join(income_final, by = "district") %>%
+  select(district, violence, income, proportion_violent) %>%
+  drop_na(income)
+
+fit_obj_income <- stan_glm(data = model_violence_income,
+                    proportion_violent ~ income - 1,
+                    refresh = 0)
+
+new_obs_income <- tibble(income = c(53518, 72736))
+
+pp_income <- posterior_predict(fit_obj_income, newdata = new_obs_income) %>%
+  as_tibble() %>%
+  mutate_all(as.numeric) %>%
+  rename("low" = `1`,
+         "high" = `2`) %>%
+  pivot_longer(cols = low:high,
+               names_to = "income",
+               values_to = "proportion_violent")
+
+ggplot(pp_income, aes(x = proportion_violent, fill = income)) +
+  geom_histogram(aes(y = after_stat(count/sum(count))), bins = 75,
+                 color = "white", position = "identity", alpha = 0.5) +
+  scale_y_continuous(labels = scales::percent_format()) + 
+  labs(title = "Posterior Distribution for Violence based on Income",
+       x = "Proportion Violent",
+       y = "Probability") +
+  theme_bw()
+
+```
+
+```{r}
+model <- left_join(x = gini_final, y = poverty_final, by = "district") %>%
+  left_join(model_violence, by = "district") %>%
+  left_join(income_final, by = "district")
+
+fit <- stan_glm(formula = proportion_violent ~ gini_score + 
+                  poverty + number_protests + income, 
+                data = model, 
+                refresh = 0)
+
+print(fit, digits = 15)
+```
+
+from meeting w Mitchell — what we'll end up doing is basically this
+
+```{r}
+new_obssss <- tibble(gini_score = input$whatever,
+                  poverty = input$whatever)
+
+posterior_predict(dataset, new_obssss)
 ```
 
