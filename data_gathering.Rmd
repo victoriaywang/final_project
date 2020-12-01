@@ -78,58 +78,6 @@ acled_data_new <- acled_data %>%
 
 ```
 
-
-Plotting Violence by Protest Subject
-```{r}
-
-# regular
-acled_data_new %>%
-  filter(sub_event_type %in% c("Peaceful protest", "Protest with intervention",
-                               "Violent demonstration", "Mob violence")) %>%
-  filter(blm == TRUE) %>%
-  select(sub_event_type, blm) %>%
-  group_by(sub_event_type) %>%
-  summarize(count = n(), .groups = "drop") %>%
-  ggplot(aes(x = factor(sub_event_type, levels = c("Mob violence",
-                                                   "Violent demonstration",
-                                                   "Protest with intervention",
-                                                   "Peaceful protest")), 
-             y = count)) + 
-    geom_col() + 
-    labs(title = "Violence during Protests",
-         subtitle = "Summer and Fall 2020",
-         x = "Type of Protest",
-         y = "Number of Protests") +
-    scale_x_discrete(drop = FALSE) + 
-    coord_flip() + 
-    theme_classic()
-
-# function w input ps
-violence_plot <- function(ps){
-  acled_data_new %>%
-  filter(sub_event_type %in% c("Peaceful protest", "Protest with intervention",
-                               "Violent demonstration", "Mob violence")) %>%
-  filter({{ps}} == TRUE) %>%
-  select(sub_event_type, {{ps}}) %>%
-  group_by(sub_event_type) %>%
-  summarize(count = n(), .groups = "drop") %>%
-  ggplot(aes(x = factor(sub_event_type, levels = c("Mob violence",
-                                                   "Violent demonstration",
-                                                   "Protest with intervention",
-                                                   "Peaceful protest")), 
-             y = count)) + 
-    geom_col() + 
-    labs(title = "Violence during Protests",
-         subtitle = "Summer and Fall 2020",
-         x = "Type of Protest",
-         y = "Number of Protests") +
-    scale_x_discrete(drop = FALSE) + 
-    coord_flip() + 
-    theme_classic()
-}
-violence_plot(militia)
-```
-
 Mapping
 ```{r}
 census_api_key("c272499f01a005c075c74055db3526e316e1836d")
@@ -186,31 +134,63 @@ model_violence <- model_violence %>%
                                       no = TRUE))
 ```
 
-
-Modeling: Income Inequality
+Function for inputting new parameters from Census data
 ```{r}
+district_formatting <- function(ds){
+  ds_clean <- ds[-1 ,] %>%
+    rename("district" = NAME) %>%
+    separate(col = district, sep = ", ", into = c("district", "state"))
+  correct_district <- ds_clean %>%
+    mutate(district = sub(gini_clean$district, pattern = " [[:alpha:]]*$", 
+                        replacement = "")) %>%
+    transform(district = paste(district, state, sep=", ")) %>%
+    select(!state)
+  return(correct_district)
+  }
+```
+
+Reading in parameter
+```{r}
+# gini
 gini <- read_csv("raw_data/census_gini.csv", col_types = cols(
   GEO_ID = col_character(),
   NAME = col_character(),
   B19083_001E = col_character(),
   B19083_001M = col_character()
 ))
+gini_final <- district_formatting(gini) %>%
+  select(B19083_001E, district) %>%
+  rename("gini_score" = B19083_001E)
 
-gini_clean <- gini[-1 ,] %>%
-  select(!c(B19083_001M, GEO_ID)) %>%
-  rename("district" = NAME, 
-         "gini_score" = B19083_001E) %>%
-  mutate(gini_score = as.double(gini_score)) %>%
-  separate(col = district, sep = ", ", into = c("district", "state")) 
+# poverty
+poverty <- read_csv("raw_data/census_poverty.csv") %>%
+  select(S1701_C03_001E, NAME)
+poverty_final <- district_formatting(poverty) %>%
+  rename("poverty" = S1701_C03_001E)
 
-gini_final <- gini_clean %>%
-  mutate(district = sub(gini_clean$district, pattern = " [[:alpha:]]*$", 
-                        replacement = "")) %>%
-  select(district, gini_score, state) %>%
-  transform(district = paste(district, state, sep=", "))
-  
-# Come back and fix the NA's. 
+# income
+income <- read_csv("raw_data/census_income.csv") %>%
+  select(NAME, S1901_C01_012E)
+income_final <- district_formatting(income) %>%
+  rename("income" = S1901_C01_012E)
 
+# population
+population <- read_csv("raw_data/census_population.csv", col_types = cols(
+  GEO_ID = col_character(),
+  NAME = col_character(),
+  B01003_001E = col_character(),
+  B01003_001M = col_character()
+))
+population_final <- district_formatting(population) %>%
+  rename("population" = B01003_001E) %>%
+  mutate(population = as.numeric(population))
+
+```
+
+
+
+Modeling: Income Inequality
+```{r}
 model_violence_gini <- model_violence %>%
   left_join(gini_final, by = "district") %>%
   select(district, violence, gini_score, proportion_violent)
@@ -256,21 +236,6 @@ ggplot(pp_gini, aes(x = proportion_violent, fill = gini)) +
 
 Modeling: Poverty
 ```{r}
-poverty <- read.csv("raw_data/census_poverty.csv") %>%
-  select(S1701_C03_001E, NAME)
-
-poverty_clean <- poverty[-1 ,] %>%
-  rename("district" = NAME, 
-         "poverty" = S1701_C03_001E) %>%
-  mutate(poverty = as.double(poverty)) %>%
-  separate(col = district, sep = ", ", into = c("district", "state")) 
-
-poverty_final <- poverty_clean %>%
-  mutate(district = sub(poverty_clean$district, pattern = " [[:alpha:]]*$", 
-                        replacement = "")) %>%
-  select(district, poverty, state) %>%
-  transform(district = paste(district, state, sep = ", "))
-
 model_violence_poverty <- model_violence %>%
   left_join(poverty_final, by = "district") %>%
   select(district, violence, poverty, proportion_violent) %>%
@@ -304,22 +269,8 @@ ggplot(pp_poverty, aes(x = proportion_violent, fill = poverty)) +
 
 ```
 
+Modeling: Income
 ```{r}
-income <- read.csv("raw_data/census_income.csv") %>%
-  select(NAME, S1901_C01_012E)
-
-income_clean <- income[-1 ,] %>%
-  rename("district" = NAME, 
-         "income" = S1901_C01_012E) %>%
-  mutate(income = as.double(income)) %>%
-  separate(col = district, sep = ", ", into = c("district", "state")) 
-
-income_final <- income_clean %>%
-  mutate(district = sub(income_clean$district, pattern = " [[:alpha:]]*$", 
-                        replacement = "")) %>%
-  select(district, income, state) %>%
-  transform(district = paste(district, state, sep = ", "))
-
 model_violence_income <- model_violence %>%
   left_join(income_final, by = "district") %>%
   select(district, violence, income, proportion_violent) %>%
@@ -351,18 +302,21 @@ ggplot(pp_income, aes(x = proportion_violent, fill = income)) +
 
 ```
 
+
+
 ```{r}
 model <- left_join(x = gini_final, y = poverty_final, by = "district") %>%
   left_join(model_violence, by = "district") %>%
-  left_join(income_final, by = "district")
+  left_join(income_final, by = "district") %>%
+  left_join(population_final, by = "district")
 
-fit <- stan_glm(formula = proportion_violent ~ gini_score + 
-                  poverty + number_protests + income, 
+fit <- stan_glm(formula = proportion_violent ~ gini_score + poverty + income + population, 
                 data = model, 
                 refresh = 0)
 
 print(fit, digits = 15)
 ```
+
 
 from meeting w Mitchell — what we'll end up doing is basically this
 
@@ -373,3 +327,6 @@ new_obssss <- tibble(gini_score = input$whatever,
 posterior_predict(dataset, new_obssss)
 ```
 
+interesting final projects:
+https://nidal-morrison.shinyapps.io/urgent_fury/
+https://wyatthurt.shinyapps.io/water_conflict/
