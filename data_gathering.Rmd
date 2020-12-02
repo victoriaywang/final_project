@@ -13,11 +13,12 @@ library(leaflet)
 library(lubridate)
 library(stringr)
 library(rstanarm)
+library(naniar)
 ```
 
 Dataset
 ```{r}
-acled_data <- read_xlsx("raw_data/USA_2020_Oct31_new.xlsx") %>%
+acled_data <- read_xlsx("raw_data/protest_data.xlsx") %>%
   clean_names() %>%
   mutate(assoc_actor_1 = as.factor(assoc_actor_1),
          event_type = as.factor(event_type),
@@ -131,7 +132,8 @@ model_violence <- model_violence %>%
   mutate(proportion_violent = number_violent / number_protests,
          violence = ifelse(proportion_violent == 0,
                                       yes = FALSE,
-                                      no = TRUE))
+                                      no = TRUE)) %>%
+  select(!violence)
 ```
 
 Function for inputting new parameters from Census data
@@ -141,7 +143,7 @@ district_formatting <- function(ds){
     rename("district" = NAME) %>%
     separate(col = district, sep = ", ", into = c("district", "state"))
   correct_district <- ds_clean %>%
-    mutate(district = sub(gini_clean$district, pattern = " [[:alpha:]]*$", 
+    mutate(district = sub(ds_clean$district, pattern = " [[:alpha:]]*$", 
                         replacement = "")) %>%
     transform(district = paste(district, state, sep=", ")) %>%
     select(!state)
@@ -149,7 +151,7 @@ district_formatting <- function(ds){
   }
 ```
 
-Reading in parameter
+Reading in parameters
 ```{r}
 # gini
 gini <- read_csv("raw_data/census_gini.csv", col_types = cols(
@@ -160,31 +162,110 @@ gini <- read_csv("raw_data/census_gini.csv", col_types = cols(
 ))
 gini_final <- district_formatting(gini) %>%
   select(B19083_001E, district) %>%
-  rename("gini_score" = B19083_001E)
+  rename("gini_score" = B19083_001E) %>%
+  mutate(gini_score = as.numeric(gini_score))
 
 # poverty
-poverty <- read_csv("raw_data/census_poverty.csv") %>%
+poverty <- read_csv("raw_data/census_poverty.csv", col_types = cols(
+  .default = col_character()
+)) %>%
   select(S1701_C03_001E, NAME)
 poverty_final <- district_formatting(poverty) %>%
-  rename("poverty" = S1701_C03_001E)
+  rename("poverty" = S1701_C03_001E) %>%
+  mutate(poverty = as.numeric(poverty))
 
 # income
-income <- read_csv("raw_data/census_income.csv") %>%
+income <- read_csv("raw_data/census_income.csv", col_types = cols(
+  .default = col_character()
+)) %>%
   select(NAME, S1901_C01_012E)
 income_final <- district_formatting(income) %>%
-  rename("income" = S1901_C01_012E)
+  rename("income" = S1901_C01_012E) %>%
+  mutate(income = as.numeric(income))
 
 # population
 population <- read_csv("raw_data/census_population.csv", col_types = cols(
-  GEO_ID = col_character(),
-  NAME = col_character(),
-  B01003_001E = col_character(),
-  B01003_001M = col_character()
-))
+  .default = col_character()
+)) %>%
+  select(NAME, B01003_001E)
 population_final <- district_formatting(population) %>%
   rename("population" = B01003_001E) %>%
   mutate(population = as.numeric(population))
 
+# unemployment
+unemployment <- read_csv("raw_data/census_unemployment.csv", col_types = cols(
+  .default = col_character()
+))
+unemployment_final <- district_formatting(unemployment) %>%
+  select(district, S2301_C04_001E) %>%
+  rename("unemployment" = S2301_C04_001E) %>%
+  replace_with_na(replace = list(unemployment = "N")) %>%
+  mutate(unemployment = as.numeric(unemployment))
+
+# education
+education_final <- district_formatting(unemployment) %>%
+  select(S2301_C01_031E, S2301_C01_032E, S2301_C01_033E, S2301_C01_034E, 
+         S2301_C01_035E, district) %>%
+  rename("pop" = S2301_C01_031E,
+         "less_than_hs" = S2301_C01_032E,
+         "hs" = S2301_C01_033E,
+         "some_college" = S2301_C01_034E,
+         "college" = S2301_C01_035E) %>%
+  replace_with_na(replace = list(pop = "N")) %>%
+  replace_with_na(replace = list(less_than_hs = "N")) %>%
+  mutate(less_than_hs = as.numeric(less_than_hs),
+         pop = as.numeric(pop),
+         prop_less_than_hs = less_than_hs / pop) %>%
+  select(prop_less_than_hs, district)
+
+# police killings
+states <- tibble(state_name = state.name) %>%
+  bind_cols(tibble(state = state.abb))
+police_killings_final <- read_excel("raw_data/police_killings.xlsx") %>%
+  left_join(states, by = "state") %>%
+  select(!state) %>%
+  rename("state" = state_name,
+         "district" = county) %>%
+  drop_na() %>%
+  transform(district = paste(district, state, sep=", ")) %>%
+  group_by(district) %>%
+  summarize(police_killings = n(), .groups = "drop")
+```
+
+Parameter dataset
+
+```{r}
+model <- left_join(x = gini_final, y = poverty_final, by = "district") %>%
+  left_join(income_final, by = "district") %>%
+  left_join(population_final, by = "district") %>%
+  left_join(education_final, by = "district") %>%
+  left_join(police_killings_final, by = "district") %>%
+  left_join(model_violence, by = "district")
+```
+
+Modeling: all
+
+```{r}
+fit <- stan_glm(data = model,
+                formula = number_violent ~ gini_score + number_protests +
+                          poverty + income + population + prop_less_than_hs + 
+                          police_killings, 
+                refresh = 0)
+                
+print(fit, digits = 5)
+
+
+new_obs <- tibble(gini_score = 0.5,
+                  number_protests = 50)
+
+posterior_predict(fit, newdata = new_obs) %>%
+  as_tibble() %>%
+  mutate_all(as.numeric) %>%
+  ggplot(aes(x = `1`)) +
+    geom_histogram(aes(y = after_stat(count/sum(count))), bins = 75,
+                   color = "white", position = "identity", alpha = 0.5) +
+    scale_y_continuous(labels = scales::percent_format()) + 
+    xlim(c(-5,20))
 ```
 
 
