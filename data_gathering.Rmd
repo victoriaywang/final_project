@@ -230,6 +230,32 @@ police_killings_final <- read_excel("raw_data/police_killings.xlsx") %>%
   transform(district = paste(district, state, sep=", ")) %>%
   group_by(district) %>%
   summarize(police_killings = n(), .groups = "drop")
+
+# ideology
+ideology <- read_csv("raw_data/ideology.csv", col_types = cols(
+  county_fips = col_double(),
+  mrp_ideology_mean = col_double(),
+  mrp_sd = col_double(),
+  mrp_lower = col_double(),
+  mrp_upper = col_double(),
+  raw_ideology_mean = col_double(),
+  sample_size = col_double(),
+  abb = col_character(),
+  state_fips = col_double(),
+  county_name = col_character(),
+  population_2010 = col_character(),
+  state = col_character(),
+  obama_pc_t2012 = col_double(),
+  romney_pct_2012 = col_character(),
+  other_pct_2012 = col_character(),
+  obama_pct_2008 = col_double(),
+  mccain_pct_2008 = col_character(),
+  other_pct_2008 = col_character()
+)) %>%
+  select(mrp_ideology_mean, county_name) %>%
+  rename("NAME" = county_name,
+         "ideology" = mrp_ideology_mean)
+ideology_final <- district_formatting(ideology)
 ```
 
 Parameter dataset
@@ -240,6 +266,7 @@ model <- left_join(x = gini_final, y = poverty_final, by = "district") %>%
   left_join(population_final, by = "district") %>%
   left_join(education_final, by = "district") %>%
   left_join(police_killings_final, by = "district") %>%
+  left_join(ideology_final, by = "district") %>%
   left_join(model_violence, by = "district")
 ```
 
@@ -249,7 +276,7 @@ Modeling: all
 fit <- stan_glm(data = model,
                 formula = number_violent ~ gini_score + number_protests +
                           poverty + income + population + prop_less_than_hs + 
-                          police_killings, 
+                          police_killings + ideology, 
                 refresh = 0)
                 
 print(fit, digits = 5)

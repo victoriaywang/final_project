@@ -156,10 +156,13 @@ server <- function(input, output) {
             mutate_all(as.numeric) %>%
             ggplot(aes(x = `1`)) +
             geom_histogram(aes(y = after_stat(count/sum(count))), bins = 75,
-                           color = "white", position = "identity", alpha = 0.5) +
+                           color = "white", position = "identity", alpha = 0.5,
+                           fill = "black") +
             scale_y_continuous(labels = scales::percent_format()) + 
             xlim(c(-5, 20)) + 
-            labs(x = "Number of Violent Protests")
+            labs(x = "Number of Violent Protests",
+                 y = "Probability") +
+            theme_bw()
     })
     
 }
