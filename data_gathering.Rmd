@@ -256,18 +256,38 @@ ideology <- read_csv("raw_data/ideology.csv", col_types = cols(
   rename("NAME" = county_name,
          "ideology" = mrp_ideology_mean)
 ideology_final <- district_formatting(ideology)
+
+# mobility
+mobility <- read_csv("raw_data/mobility.csv", col_types = cols(
+  cty = col_character(),
+  Name = col_character(),
+  Household_Income_rP_gP_p25 = col_double()
+)) %>%
+  rename("district" = Name) %>%
+  separate(col = district, sep = ", ", into = c("district", "state")) %>%
+  left_join(states, by = "state") %>%
+  select(!state) %>%
+  rename("state" = state_name)
+
+mobility_final <- mobility %>%
+  mutate(district = sub(mobility$district, pattern = " [[:alpha:]]*$", 
+                        replacement = "")) %>%
+  transform(district = paste(district, state, sep=", ")) %>%
+  select(Household_Income_rP_gP_p25, district) %>%
+  rename("mobility" = Household_Income_rP_gP_p25)
 ```
 
 Parameter dataset
 
 ```{r}
-model <- left_join(x = gini_final, y = poverty_final, by = "district") %>%
-  left_join(income_final, by = "district") %>%
-  left_join(population_final, by = "district") %>%
-  left_join(education_final, by = "district") %>%
-  left_join(police_killings_final, by = "district") %>%
-  left_join(ideology_final, by = "district") %>%
-  left_join(model_violence, by = "district")
+model <- full_join(x = gini_final, y = poverty_final, by = "district") %>%
+  full_join(income_final, by = "district") %>%
+  full_join(population_final, by = "district") %>%
+  full_join(education_final, by = "district") %>%
+  full_join(police_killings_final, by = "district") %>%
+  full_join(ideology_final, by = "district") %>%
+  full_join(mobility_final, by = "district") %>%
+  full_join(model_violence, by = "district")
 ```
 
 Modeling: all
@@ -276,7 +296,7 @@ Modeling: all
 fit <- stan_glm(data = model,
                 formula = number_violent ~ gini_score + number_protests +
                           poverty + income + population + prop_less_than_hs + 
-                          police_killings + ideology, 
+                          police_killings + ideology + mobility, 
                 refresh = 0)
                 
 print(fit, digits = 5)
@@ -412,18 +432,7 @@ ggplot(pp_income, aes(x = proportion_violent, fill = income)) +
 
 
 
-```{r}
-model <- left_join(x = gini_final, y = poverty_final, by = "district") %>%
-  left_join(model_violence, by = "district") %>%
-  left_join(income_final, by = "district") %>%
-  left_join(population_final, by = "district")
 
-fit <- stan_glm(formula = proportion_violent ~ gini_score + poverty + income + population, 
-                data = model, 
-                refresh = 0)
-
-print(fit, digits = 15)
-```
 
 
 from meeting w Mitchell — what we'll end up doing is basically this
