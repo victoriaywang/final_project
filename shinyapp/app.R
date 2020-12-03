@@ -15,6 +15,9 @@ library(janitor)
 library(tidycensus)
 library(lubridate)
 library(rstanarm)
+library(stringr)
+library(naniar)
+
 acled_data <- readRDS("acled_data.RDS")
 rural <- readRDS("rural.RDS")
 acled_data_11_6 <- readRDS("acled_data_11_6.RDS")
@@ -22,8 +25,9 @@ acled_data_11_12 <- readRDS("acled_data_11_12.RDS")
 model_12_2 <- readRDS("model_12_2.RDS")
 
 ui <- navbarPage(
-    "Final Project",
-    tabPanel("Maps",
+    "Violence at Protests: Summer and Fall 2020",
+    tabPanel("Mapping Protests",
+             titlePanel("Mapping protests in the United States during Summer and Fall 2020"),
         sidebarLayout(
             sidebarPanel(
                 selectInput("var", 
@@ -42,8 +46,8 @@ ui <- navbarPage(
             mainPanel(leafletOutput("mapPlot"))
         ),
     ),
-    tabPanel("Violence at Protests",
-                 titlePanel("Model Title"),
+    tabPanel("Correlation between Protest Subject and Violence",
+                 titlePanel("How are the subjects of protests and violence correlated?"),
                  sidebarLayout(
                      sidebarPanel(
                          selectInput("plot_type",
@@ -53,13 +57,10 @@ ui <- navbarPage(
                                                  "Pro-Police" = "pro_police",
                                                  "Labor" = "labor")
                                      )),
-                     mainPanel(plotOutput("protestPlot"))),
-                  p("I have written a function to create this graph, but for 
-                    some reason it is not working! However, I asked a question 
-                    about it in the final-project channel in the Slack and 
-                    am hoping to figure out what is going wrong!")
+                     mainPanel(plotOutput("protestPlot")))
              ),
     tabPanel("Modeling",
+             titlePanel("What factors are correlated with the number of violent protests?"),
              sidebarLayout(
                  sidebarPanel(
                      sliderInput("gini",
@@ -85,11 +86,10 @@ ui <- navbarPage(
                  mainPanel(plotOutput("modelPlot"))
              ),
     ),
-    tabPanel("Discussion"),
     tabPanel("About", 
              titlePanel("About"),
              h3("Project Background and Motivations"),
-             p("Hello, this is where I talk about my project."),
+             p("My final project studies the nationwide protests, peaceful and violent, of this past summer and fall. Using protest data from the Armed Conflict Location & Event Data Project’s US Crisis Monitor, I hope to understand what factors might help predict the likelihood of a protest turning violent. Combining protest data with county-level data about economic indicators (economic inequality, poverty, median household income, social mobility), demographic information (level of education, teenage birth rate, race), other indicators of quality of life (premature death rate, violent crime rate, housing problems), and other interesting indicators (political ideology), I find that one of the strongest predictors of violence at protests is income inequality."),
              h3("About Me"),
              p("My name is Victoria Wang. 
                You can reach me at victoriawang@college.harvard.edu.")))
@@ -97,6 +97,22 @@ ui <- navbarPage(
 # Define server logic required to draw a histogram
 server <- function(input, output) {
 
+    output$mapPlot <- renderLeaflet({
+        subset <- acled_data_11_6 %>%
+            mutate(event_date = ymd(event_date)) %>%
+            filter(event_date %in% (input$daterange1[1]:input$daterange1[2])) %>%
+            filter(sub_event_type == input$var)
+        
+        pal <- 
+            colorFactor(palette = "Reds",
+                        levels = c("Peaceful protest", "Protest with intervention", 
+                                   "Violent demonstration", "Mob violence"))
+        
+        leaflet(rural) %>%
+            addTiles() %>%
+            addCircleMarkers(lng = subset$longitude, lat = subset$latitude, radius = 0.1)
+    })
+    
     output$protestPlot <- renderPlot({
         violence_plot <- function(ps){
             acled_data_11_12 %>%
@@ -118,26 +134,11 @@ server <- function(input, output) {
                      y = "Number of Protests") +
                 scale_x_discrete(drop = FALSE) + 
                 coord_flip() + 
-                theme_classic()
+                theme_minimal() + 
+                scale_fill_brewer()
         }
         violence_plot(input$plot_type)
         })
-    
-    output$mapPlot <- renderLeaflet({
-        subset <- acled_data_11_6 %>%
-            mutate(event_date = ymd(event_date)) %>%
-            filter(event_date %in% (input$daterange1[1]:input$daterange1[2])) %>%
-            filter(sub_event_type == input$var)
-        
-        pal <- 
-            colorFactor(palette = "Reds",
-                        levels = c("Peaceful protest", "Protest with intervention", 
-                                   "Violent demonstration", "Mob violence"))
-        
-        leaflet(rural) %>%
-            addTiles() %>%
-            addCircleMarkers(lng = subset$longitude, lat = subset$latitude, radius = 0.1)
-    })
     
     output$modelPlot <- renderPlot({
         fit <- stan_glm(data = model_12_2,
