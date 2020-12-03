@@ -275,7 +275,59 @@ mobility_final <- mobility %>%
   transform(district = paste(district, state, sep=", ")) %>%
   select(Household_Income_rP_gP_p25, district) %>%
   rename("mobility" = Household_Income_rP_gP_p25)
+
 ```
+
+County Health Data
+```{r}
+health_data <- read_excel("raw_data/ranked_measure_data.xlsx", 
+                                  skip = 1) %>%
+  clean_names() %>%
+  drop_na(county) %>%
+  mutate(district = sub(county, pattern = " [[:alpha:]]*$", 
+                        replacement = "")) %>%
+  transform(district = paste(district, state, sep = ", ")) %>%
+  rename("premature_death_rate" = years_of_potential_life_lost_rate,
+         "housing_problems" = percent_severe_housing_problems)
+
+health_final <- health_data %>%
+  select(district, premature_death_rate, teen_birth_rate, 
+         preventable_hospitalization_rate, high_school_graduation_rate, 
+         violent_crime_rate, housing_problems)
+
+health_cont_data <- read_excel("raw_data/health_cont.xlsx", 
+                                  skip = 1) %>%
+  clean_names() %>%
+  rename("physical_distress" = percent_frequent_physical_distress,
+         "mental_distress" = percent_frequent_mental_distress) %>%
+  drop_na(county) %>%
+  mutate(district = sub(county, pattern = " [[:alpha:]]*$", 
+                        replacement = "")) %>%
+  transform(district = paste(district, state, sep = ", "))
+
+health_cont_final <- health_cont_data %>%
+  select(district, physical_distress, mental_distress, life_expectancy, 
+         segregation_index, segregation_index_2, percent_homeowners, 
+         percent_black, percent_non_hispanic_white, percent_hispanic, 
+         homicide_rate, firearm_fatalities_rate)
+
+model_health <- full_join(x = health_final, y = health_cont_final, 
+                          by = "district") %>%
+  full_join(model_violence, by = "district")
+
+glimpse(model_health)
+```
+
+```{r}
+# teen_birth_rate, high_school_graduation_rate, violent_crime_rate, physical_distress, segregation_index_2, life_expectancy, percent_homeowners, percent_black, number_protests
+
+fit_health <- stan_glm(data = model_health,
+                formula = number_violent ~ number_protests, 
+                refresh = 0)
+                
+print(fit_health, digits = 5)
+```
+
 
 Parameter dataset
 
@@ -287,32 +339,35 @@ model <- full_join(x = gini_final, y = poverty_final, by = "district") %>%
   full_join(police_killings_final, by = "district") %>%
   full_join(ideology_final, by = "district") %>%
   full_join(mobility_final, by = "district") %>%
-  full_join(model_violence, by = "district")
+  full_join(health_final, by = "district") %>%
+  full_join(health_cont_final, by = "district") %>%
+  full_join(model_violence, by = "district") %>%
+  select(!c(mental_distress, segregation_index, mobility, premature_death_rate, 
+            preventable_hospitalization_rate, homicide_rate, 
+            firearm_fatalities_rate, proportion_violent))
+
+glimpse(model)
 ```
 
-Modeling: all
+### All Parameters
+gini_score
+poverty
+income
+population
+education
 
+
+Modeling: all
 ```{r}
 fit <- stan_glm(data = model,
-                formula = number_violent ~ gini_score + number_protests +
-                          poverty + income + population + prop_less_than_hs + 
-                          police_killings + ideology + mobility, 
+                formula = number_violent ~ gini_score + prop_less_than_hs + 
+                  police_killings + ideology + teen_birth_rate + high_school_graduation_rate + 
+                  violent_crime_rate + housing_problems + physical_distress + 
+                  life_expectancy + segregation_index_2 + percent_homeowners + 
+                  number_protests, 
                 refresh = 0)
                 
 print(fit, digits = 5)
-
-
-new_obs <- tibble(gini_score = 0.5,
-                  number_protests = 50)
-
-posterior_predict(fit, newdata = new_obs) %>%
-  as_tibble() %>%
-  mutate_all(as.numeric) %>%
-  ggplot(aes(x = `1`)) +
-    geom_histogram(aes(y = after_stat(count/sum(count))), bins = 75,
-                   color = "white", position = "identity", alpha = 0.5) +
-    scale_y_continuous(labels = scales::percent_format()) + 
-    xlim(c(-5,20))
 ```
 
 
