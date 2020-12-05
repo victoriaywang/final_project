@@ -115,3 +115,103 @@ violence_plot <- function(ps){
 }
 violence_plot(militia)
 ```
+
+
+```{r}
+# ideology
+ideology <- read_csv("raw_data/ideology.csv", col_types = cols(
+  county_fips = col_double(),
+  mrp_ideology_mean = col_double(),
+  mrp_sd = col_double(),
+  mrp_lower = col_double(),
+  mrp_upper = col_double(),
+  raw_ideology_mean = col_double(),
+  sample_size = col_double(),
+  abb = col_character(),
+  state_fips = col_double(),
+  county_name = col_character(),
+  population_2010 = col_character(),
+  state = col_character(),
+  obama_pc_t2012 = col_double(),
+  romney_pct_2012 = col_character(),
+  other_pct_2012 = col_character(),
+  obama_pct_2008 = col_double(),
+  mccain_pct_2008 = col_character(),
+  other_pct_2008 = col_character()
+)) %>%
+  select(mrp_ideology_mean, county_name) %>%
+  rename("NAME" = county_name,
+         "ideology" = mrp_ideology_mean)
+ideology_final <- district_formatting(ideology)
+
+# mobility
+mobility <- read_csv("raw_data/mobility.csv", col_types = cols(
+  cty = col_character(),
+  Name = col_character(),
+  Household_Income_rP_gP_p25 = col_double()
+)) %>%
+  rename("district" = Name) %>%
+  separate(col = district, sep = ", ", into = c("district", "state")) %>%
+  left_join(states, by = "state") %>%
+  select(!state) %>%
+  rename("state" = state_name)
+
+mobility_final <- mobility %>%
+  mutate(district = sub(mobility$district, pattern = " [[:alpha:]]*$", 
+                        replacement = "")) %>%
+  transform(district = paste(district, state, sep=", ")) %>%
+  select(Household_Income_rP_gP_p25, district) %>%
+  rename("mobility" = Household_Income_rP_gP_p25)
+
+# police killings
+states <- tibble(state_name = state.name) %>%
+  bind_cols(tibble(state = state.abb))
+police_killings_final <- read_excel("raw_data/police_killings.xlsx") %>%
+  left_join(states, by = "state") %>%
+  select(!state) %>%
+  rename("state" = state_name,
+         "district" = county) %>%
+  drop_na() %>%
+  transform(district = paste(district, state, sep=", ")) %>%
+  group_by(district) %>%
+  summarize(police_killings = n(), .groups = "drop")
+```
+
+```{r}
+district_formatting <- function(ds){
+  ds_clean <- ds[-1 ,] %>%
+    rename("district" = NAME) %>%
+    separate(col = district, sep = ", ", into = c("district", "state"))
+  correct_district <- ds_clean %>%
+    mutate(district = sub(ds_clean$district, pattern = " [[:alpha:]]*$", 
+                        replacement = "")) %>%
+    transform(district = paste(district, state, sep=", ")) %>%
+    select(!state)
+  return(correct_district)
+}
+```
+
+Workflow??????
+```{r}
+data_split <- initial_split(data, prob = 0.80)
+data_train <- training(data_split)
+data_test <- testing(data_split)
+
+data_wfl <- workflow() %>%
+  add_recipe(recipe(data = data_train,
+                    formula = number_violent ~ gini_score + prop_less_than_hs + 
+                      police_killings + ideology + teen_birth_rate + 
+                      high_school_graduation_rate + violent_crime_rate + 
+                      housing_problems + physical_distress + 
+                      life_expectancy + segregation_index_2 + 
+                      percent_homeowners + number_protests)) %>%
+  add_model(linear_reg() %>% 
+              set_engine("lm"))
+
+prediction_results <- data_wfl %>%
+  fit(data = data_train) %>%
+  predict(new_data = data_test) %>%
+  bind_cols(data_test %>%
+              select(number_violent)) %>%
+  metrics(truth = number_violent, estimate = `.pred`)
+```

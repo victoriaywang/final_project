@@ -110,7 +110,8 @@ server <- function(input, output) {
         
         leaflet(rural) %>%
             addTiles() %>%
-            addCircleMarkers(lng = subset$longitude, lat = subset$latitude, radius = 0.1)
+            addCircleMarkers(lng = subset$longitude, lat = subset$latitude, radius = 0.1,
+                             color = ~pal(acled_data_new$sub_event_type))
     })
     
     output$protestPlot <- renderPlot({
