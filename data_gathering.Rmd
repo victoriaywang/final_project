@@ -16,6 +16,7 @@ library(rstanarm)
 library(naniar)
 library(tidymodels)
 library(ggthemes)
+install.packages("shinythemes")
 ```
 
 Dataset
@@ -499,7 +500,7 @@ acled_w_subjects %>%
 
 ```
 
-Mapping
+Mapping: Leaflet
 ```{r}
 census_api_key("c272499f01a005c075c74055db3526e316e1836d")
 
@@ -514,32 +515,19 @@ rural <- get_decennial(geography = "state",
 
 subset <- acled_data_new %>%
   mutate(event_date = ymd(event_date)) %>%
-  filter(event_date <= "2020-06-01")
-
-pal <- 
-   colorFactor(palette = "Spectral",
-               levels = c("Peaceful protest", "Protest with intervention", 
-                          "Violent demonstration", "Mob violence"))
+  filter(event_date <= "2020-05-30")
 
 leaflet(rural) %>%
   addTiles() %>%
-  addCircleMarkers(lng = subset$longitude, lat = subset$latitude, radius = 0.1,
-                   color = ~pal(acled_data_new$sub_event_type))
+  addCircleMarkers(lng = subset$longitude, lat = subset$latitude, radius = 0.1)
 ```
-
-
-
-
-
-
-from meeting w Mitchell — what we'll end up doing is basically this
 
 ```{r}
-new_obssss <- tibble(gini_score = input$whatever,
-                  poverty = input$whatever)
-
-posterior_predict(dataset, new_obssss)
+world <- ggplot() +
+  borders("world", colour = "gray85", fill = "gray80") +
+  theme_map() 
 ```
+
 
 interesting final projects:
 https://nidal-morrison.shinyapps.io/urgent_fury/

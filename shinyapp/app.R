@@ -118,15 +118,9 @@ server <- function(input, output) {
             filter(event_date %in% (input$daterange1[1]:input$daterange1[2])) %>%
             filter(sub_event_type == input$var)
         
-        pal <- 
-            colorFactor(palette = "Reds",
-                        levels = c("Peaceful protest", "Protest with intervention", 
-                                   "Violent demonstration", "Mob violence"))
-        
         leaflet(rural) %>%
             addTiles() %>%
-            addCircleMarkers(lng = subset$longitude, lat = subset$latitude, radius = 0.1,
-                             color = ~pal(acled_data_new$sub_event_type))
+            addCircleMarkers(lng = subset$longitude, lat = subset$latitude, radius = 0.1)
     })
     
     output$protestPlot <- renderPlot({
@@ -186,7 +180,7 @@ server <- function(input, output) {
                           percent_black_hispanic = input$percent_black_hispanic,
                           teen_birth_rate = input$teen_birth_rate)
         
-        new <- posterior_predict(fit_all, newdata = new_obs) %>%
+        new <- posterior_predict(fit, newdata = new_obs) %>%
             as_tibble() %>%
             mutate_all(as.numeric) %>%
             rename("new" = `1`)
