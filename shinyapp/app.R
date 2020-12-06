@@ -18,6 +18,7 @@ library(rstanarm)
 library(stringr)
 library(naniar)
 library(ggthemes)
+library(shinythemes)
 
 acled_data <- readRDS("acled_data.RDS")
 rural <- readRDS("rural.RDS")
@@ -27,7 +28,7 @@ model_12_2 <- readRDS("model_12_2.RDS")
 model <- readRDS("model_12_6.RDS")
 default <- readRDS("default_12_6.RDS")
 
-ui <- navbarPage(
+ui <- navbarPage(theme = shinytheme("sandstone"), 
     "Violence at Protests: Summer and Fall 2020",
     tabPanel("Mapping Protests",
              titlePanel("Mapping protests in the United States during Summer and Fall 2020"),
@@ -137,26 +138,29 @@ server <- function(input, output) {
                                                                  "Protest with intervention",
                                                                  "Peaceful protest")), 
                            y = count)) + 
-                  geom_col(fill = "#d1495b", color = "white", alpha = 0.7) + 
-                  labs(title = "Violence during Protests",
-                       x = "Type of Protest",
-                       y = "Number of Protests") +
-                  scale_x_discrete(drop = FALSE, breaks = c("Mob violence",
+                geom_col(fill = "sienna", color = "white", alpha = 0.7) + 
+                labs(title = "Violence during Protests",
+                     subtitle = "Summer and Fall 2020",
+                     x = "Type of Protest",
+                     y = "Number of Protests") +
+                scale_x_discrete(drop = FALSE, breaks = c("Mob violence",
                                                           "Violent demonstration",
                                                           "Protest with intervention",
                                                           "Peaceful protest"),
-                                   labels = c("Mob \n violence",
-                                              "Violent \n demonstration",
-                                              "Protest with \n intervention",
-                                              "Peaceful \n protest")) + 
-                  theme_economist() + 
-                  coord_flip() + 
-                  theme(axis.text.y = element_text(size = 12, hjust = 1),
-                        axis.text.x = element_text(size = 12),
-                        axis.title.x = element_text(size = 14, face = "bold",
-                                                    vjust = -1),
-                        axis.title.y = element_text(size = 14, face = "bold",
-                                                    vjust = 3))
+                                 labels = c("Mob \n violence",
+                                            "Violent \n demonstration",
+                                            "Protest with \n intervention",
+                                            "Peaceful \n protest")) + 
+                theme_economist() + 
+                coord_flip() + 
+                theme(axis.text.y = element_text(size = 8, hjust = 1),
+                      axis.text.x = element_text(size = 8),
+                      axis.title.x = element_text(size = 12, face = "bold",
+                                                  vjust = -1),
+                      axis.title.y = element_text(size = 12, face = "bold",
+                                                  vjust = 4),
+                      panel.background = element_rect(fill = "white"), 
+                      plot.background = element_rect(fill = "white"))
         }
         violence_plot(input$plot_type)
         })
@@ -206,11 +210,13 @@ server <- function(input, output) {
                   axis.text.y = element_text(size = 8),
                   axis.text.x = element_text(size = 8),
                   axis.title.x = element_text(size = 10, face = "bold"),
-                  axis.title.y = element_text(size = 10, face = "bold")) +
+                  axis.title.y = element_text(size = 10, face = "bold"),
+                  panel.background = element_rect(fill = "white"), 
+                  plot.background = element_rect(fill = "white")) +
             scale_fill_manual(name = "", 
                               breaks = c("default", "new"),
                               labels = c("Average County", "Hypothetical County"),
-                              values = c("#00798c", "#d1495b"))
+                              values = c("darkgray", "sienna"))
     })
     
 }

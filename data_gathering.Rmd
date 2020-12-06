@@ -16,7 +16,6 @@ library(rstanarm)
 library(naniar)
 library(tidymodels)
 library(ggthemes)
-install.packages("shinythemes")
 ```
 
 Dataset
@@ -299,7 +298,9 @@ full %>%
           axis.text.y = element_text(size = 8),
           axis.text.x = element_text(size = 8),
           axis.title.x = element_text(size = 10, face = "bold"),
-          axis.title.y = element_text(size = 10, face = "bold")) +
+          axis.title.y = element_text(size = 10, face = "bold"),
+          panel.background = element_rect(fill = "white"), 
+          plot.background = element_rect(fill = "white")) +
     scale_fill_manual(name = "", 
                       breaks = c("default", "new"),
                       labels = c("Average County", "Hypothetical County"),
@@ -475,7 +476,7 @@ acled_w_subjects %>%
                                                    "Protest with intervention",
                                                    "Peaceful protest")), 
                            y = count)) + 
-                geom_col(fill = "#d1495b", color = "white", alpha = 0.7) + 
+                geom_col(fill = "#00798c", color = "white", alpha = 0.7) + 
                 labs(title = "Violence during Protests",
                      subtitle = "Summer and Fall 2020",
                      x = "Type of Protest",
@@ -495,7 +496,9 @@ acled_w_subjects %>%
                       axis.title.x = element_text(size = 12, face = "bold",
                                                   vjust = -1),
                       axis.title.y = element_text(size = 12, face = "bold",
-                                                  vjust = 4))
+                                                  vjust = 4),
+                      panel.background = element_rect(fill = "white"), 
+                      plot.background = element_rect(fill = "white"))
 
 
 ```
@@ -521,13 +524,6 @@ leaflet(rural) %>%
   addTiles() %>%
   addCircleMarkers(lng = subset$longitude, lat = subset$latitude, radius = 0.1)
 ```
-
-```{r}
-world <- ggplot() +
-  borders("world", colour = "gray85", fill = "gray80") +
-  theme_map() 
-```
-
 
 interesting final projects:
 https://nidal-morrison.shinyapps.io/urgent_fury/
