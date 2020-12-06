@@ -226,7 +226,14 @@ Parameter dataset
 model <- left_join(health, police_killings, by = "district") %>%
   left_join(model_violence, by = "district") %>%
   left_join(census_data, by = "district") %>%
-  mutate(percent_black_hispanic = percent_black + percent_hispanic)
+  mutate(percent_black_hispanic = percent_black + percent_hispanic,
+         number_protests = ifelse(is.na(number_protests), yes = 0, 
+                                  no = model$number_protests),
+         number_violent = ifelse(is.na(number_violent), yes = 0, 
+                                 no = model$number_violent),
+         police_killings = ifelse(is.na(police_killings), yes = 0, 
+                                  no = model$police_killings),
+         teen_birth_rate = teen_birth_rate / 10)
 ```
 
 Modeling: all
@@ -235,10 +242,57 @@ fit_all <- stan_glm(data = model,
                     formula = number_violent ~ teen_birth_rate + housing_problems + 
                       physical_distress + mental_distress + segregation_index_2 + 
                       police_killings + gini_score + number_protests + 
-                      poverty + unemployment + percent_black_hispanic, 
+                      poverty + percent_black_hispanic, 
                     refresh = 0)
-                
-print(fit_all, digits = 5)
+
+new_obs <- tibble(number_protests = 7,
+                                  gini_score = 0.9,
+                                  poverty = 80,
+                                  housing_problems = 13.87,
+                                  physical_distress = 12.13,
+                                  mental_distress = 12.99,
+                                  segregation_index_2 = 30.81,
+                                  police_killings = 2.7,
+                                  percent_black_hispanic = 18.67,
+                                  teen_birth_rate = 2.98)
+
+new_obs_default <- tibble(number_protests = 4.89,
+                  gini_score = 0.45,
+                  poverty = 12.41,
+                  housing_problems = 13.87,
+                  physical_distress = 12.13,
+                  mental_distress = 12.99,
+                  segregation_index_2 = 30.81,
+                  police_killings = 2.7,
+                  percent_black_hispanic = 18.67,
+                  teen_birth_rate = 2.98)
+
+default <- posterior_predict(fit_all, newdata = new_obs_default) %>%
+  as_tibble() %>%
+  mutate_all(as.numeric) %>%
+  rename("default" = `1`)
+
+new <- posterior_predict(fit_all, newdata = new_obs) %>%
+  as_tibble() %>%
+  mutate_all(as.numeric) %>%
+  rename("new" = `1`)
+
+full <- default %>%
+  bind_cols(new) %>%
+  pivot_longer(cols = default:new,
+               names_to = "pp_results",
+               values_to = "number_violent")
+
+full %>%
+  ggplot(aes(x = number_violent, fill = pp_results)) +
+    geom_histogram(aes(y = after_stat(count/sum(count))), bins = 75,
+                           color = "white", position = "identity", alpha = 0.5) +
+    scale_y_continuous(labels = scales::percent_format()) + 
+    xlim(c(-10,20)) +
+    labs(x = "Number of Violent Protests",
+         y = "Probability") +
+    theme_bw()
+
 ```
 
 

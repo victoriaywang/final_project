@@ -23,6 +23,7 @@ rural <- readRDS("rural.RDS")
 acled_data_11_6 <- readRDS("acled_data_11_6.RDS")
 acled_data_11_12 <- readRDS("acled_data_11_12.RDS")
 model_12_2 <- readRDS("model_12_2.RDS")
+model <- readRDS("model_12_6.RDS")
 
 ui <- navbarPage(
     "Violence at Protests: Summer and Fall 2020",
@@ -63,24 +64,36 @@ ui <- navbarPage(
              titlePanel("What factors are correlated with the number of violent protests?"),
              sidebarLayout(
                  sidebarPanel(
-                     sliderInput("gini",
-                                 label = "Gini Score",
-                                 min = 0, max = 1, value = 0.5),
                      sliderInput("number_protests",
                                  label = "Total Number of Protests",
-                                 min = 0, max = 400, value = 50),
+                                 min = 0, max = 373, value = 4.89),
+                     sliderInput("gini_score",
+                                 label = "Income Inequality (higher = greater inequality)",
+                                 min = 0, max = 1, value = 0.45),
                      sliderInput("poverty",
                                  label = "Poverty Rate",
-                                 min = 0, max = 55, value = 12),
-                     sliderInput("income",
-                                 label = "Median Household Income",
-                                 min = 10000, max = 180000, value = 60000),
-                     sliderInput("population",
-                                 label = "Population",
-                                 min = 60000, max = 10000000, value = 150000),
-                     sliderInput("prop_less_than_hs",
-                                 label = "Proportion of Individuals with Less than HS Education",
-                                 min = 0, max = 0.3, value = 0.08)
+                                 min = 2, max = 34, value = 12.41),
+                     sliderInput("housing_problems",
+                                 label = "Severe Housing Problems Rate",
+                                 min = 0, max = 70, value = 13.87),
+                     sliderInput("physical_distress",
+                                 label = "Physical Distress Rate",
+                                 min = 7, max = 25, value = 12.13),
+                     sliderInput("mental_distress",
+                                 label = "Mental Distress Rate",
+                                 min = 8, max = 21, value = 12.99),
+                     sliderInput("segregation_index_2",
+                                 label = "Residential Segregation (higher = greater segregation)",
+                                 min = 0, max = 90, value = 30.81),
+                     sliderInput("police_killings",
+                                 label = "Number of Police Killings",
+                                 min = 0, max = 364, value = 2.7),
+                     sliderInput("percent_black_hispanic",
+                                 label = "% Black and Hispanic",
+                                 min = 0, max = 96, value = 18.67),
+                     sliderInput("teen_birth_rate",
+                                 label = "Teen Birth Rate",
+                                 min = 0, max = 10, value = 2.98)
                  ),
                  
                  mainPanel(plotOutput("modelPlot"))
@@ -142,27 +155,57 @@ server <- function(input, output) {
         })
     
     output$modelPlot <- renderPlot({
-        fit <- stan_glm(data = model_12_2,
-                        formula = number_violent ~ gini_score + number_protests + 
-                            poverty + income + population + prop_less_than_hs, 
+        fit <- stan_glm(data = model,
+                        formula = number_violent ~ teen_birth_rate + housing_problems + 
+                            physical_distress + mental_distress + segregation_index_2 + 
+                            police_killings + gini_score + number_protests + 
+                            poverty + percent_black_hispanic, 
                         refresh = 0)
         
-        new_obs <- tibble(gini_score = input$gini,
-                          number_protests = input$number_protests,
+        new_obs <- tibble(number_protests = input$number_protests,
+                          gini_score = input$gini_score,
                           poverty = input$poverty,
-                          income = input$income,
-                          population = input$population,
-                          prop_less_than_hs = input$prop_less_than_hs)
+                          housing_problems = input$housing_problems,
+                          physical_distress = input$physical_distress,
+                          mental_distress = input$mental_distress,
+                          segregation_index_2 = input$segregation_index_2,
+                          police_killings = input$police_killings,
+                          percent_black_hispanic = input$percent_black_hispanic,
+                          teen_birth_rate = input$teen_birth_rate)
         
-        posterior_predict(fit, newdata = new_obs) %>%
+        new_obs_default <- tibble(number_protests = 4.89,
+                                  gini_score = 0.45,
+                                  poverty = 12.41,
+                                  housing_problems = 13.87,
+                                  physical_distress = 12.13,
+                                  mental_distress = 12.99,
+                                  segregation_index_2 = 30.81,
+                                  police_killings = 2.7,
+                                  percent_black_hispanic = 18.67,
+                                  teen_birth_rate = 2.98)
+        
+        default <- posterior_predict(fit_all, newdata = new_obs_default) %>%
             as_tibble() %>%
             mutate_all(as.numeric) %>%
-            ggplot(aes(x = `1`)) +
+            rename("default" = `1`)
+        
+        new <- posterior_predict(fit_all, newdata = new_obs) %>%
+            as_tibble() %>%
+            mutate_all(as.numeric) %>%
+            rename("new" = `1`)
+        
+        full <- default %>%
+            bind_cols(new) %>%
+            pivot_longer(cols = default:new,
+                         names_to = "pp_results",
+                         values_to = "number_violent")
+        
+        full %>%
+            ggplot(aes(x = number_violent, fill = pp_results)) +
             geom_histogram(aes(y = after_stat(count/sum(count))), bins = 75,
-                           color = "white", position = "identity", alpha = 0.5,
-                           fill = "black") +
+                           color = "white", position = "identity", alpha = 0.5) +
             scale_y_continuous(labels = scales::percent_format()) + 
-            xlim(c(-5, 20)) + 
+            xlim(c(-10,20)) +
             labs(x = "Number of Violent Protests",
                  y = "Probability") +
             theme_bw()
