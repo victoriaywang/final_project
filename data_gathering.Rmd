@@ -15,7 +15,7 @@ library(stringr)
 library(rstanarm)
 library(naniar)
 library(tidymodels)
-library(fuzzyjoin)
+library(ggthemes)
 ```
 
 Dataset
@@ -286,13 +286,23 @@ full <- default %>%
 full %>%
   ggplot(aes(x = number_violent, fill = pp_results)) +
     geom_histogram(aes(y = after_stat(count/sum(count))), bins = 75,
-                           color = "white", position = "identity", alpha = 0.5) +
+                           color = "white", position = "identity", alpha = 0.6) +
     scale_y_continuous(labels = scales::percent_format()) + 
     xlim(c(-10,20)) +
     labs(x = "Number of Violent Protests",
-         y = "Probability") +
-    theme_bw()
-
+         y = "Probability",
+         title = "Model: Number of Violent Protests \n in a Hypothetical County") +
+    theme_economist() + 
+    theme(title = element_text(size = 10), 
+          legend.text = element_text(size = 10),
+          axis.text.y = element_text(size = 8),
+          axis.text.x = element_text(size = 8),
+          axis.title.x = element_text(size = 10, face = "bold"),
+          axis.title.y = element_text(size = 10, face = "bold")) +
+    scale_fill_manual(name = "", 
+                      breaks = c("default", "new"),
+                      labels = c("Average County", "Hypothetical County"),
+                      values = c("#00798c", "#d1495b"))
 ```
 
 
@@ -451,6 +461,41 @@ acled_w_subjects <- acled_data_new %>%
   pivot_longer(cols = blm:democrat,
                names_to = "subject",
                values_to = "group_boolean")
+
+acled_w_subjects %>%
+  filter(sub_event_type %in% c("Peaceful protest", "Protest with intervention",
+                                             "Violent demonstration", "Mob violence")) %>%
+  filter(subject == "blm" & group_boolean == TRUE) %>%
+  select(sub_event_type) %>%
+  group_by(sub_event_type) %>%
+  summarize(count = n(), .groups = "drop") %>%
+  ggplot(aes(x = factor(sub_event_type, levels = c("Mob violence",
+                                                   "Violent demonstration",
+                                                   "Protest with intervention",
+                                                   "Peaceful protest")), 
+                           y = count)) + 
+                geom_col(fill = "#d1495b", color = "white", alpha = 0.7) + 
+                labs(title = "Violence during Protests",
+                     subtitle = "Summer and Fall 2020",
+                     x = "Type of Protest",
+                     y = "Number of Protests") +
+                scale_x_discrete(drop = FALSE, breaks = c("Mob violence",
+                                                   "Violent demonstration",
+                                                   "Protest with intervention",
+                                                   "Peaceful protest"),
+                                 labels = c("Mob \n violence",
+                                                   "Violent \n demonstration",
+                                                   "Protest with \n intervention",
+                                                   "Peaceful \n protest")) + 
+                theme_economist() + 
+                coord_flip() + 
+                theme(axis.text.y = element_text(size = 8, hjust = 1),
+                      axis.text.x = element_text(size = 8),
+                      axis.title.x = element_text(size = 12, face = "bold",
+                                                  vjust = -1),
+                      axis.title.y = element_text(size = 12, face = "bold",
+                                                  vjust = 4))
+
 
 ```
 

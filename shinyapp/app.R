@@ -17,6 +17,7 @@ library(lubridate)
 library(rstanarm)
 library(stringr)
 library(naniar)
+library(ggthemes)
 
 acled_data <- readRDS("acled_data.RDS")
 rural <- readRDS("rural.RDS")
@@ -24,6 +25,7 @@ acled_data_11_6 <- readRDS("acled_data_11_6.RDS")
 acled_data_11_12 <- readRDS("acled_data_11_12.RDS")
 model_12_2 <- readRDS("model_12_2.RDS")
 model <- readRDS("model_12_6.RDS")
+default <- readRDS("default_12_6.RDS")
 
 ui <- navbarPage(
     "Violence at Protests: Summer and Fall 2020",
@@ -141,15 +143,26 @@ server <- function(input, output) {
                                                                  "Protest with intervention",
                                                                  "Peaceful protest")), 
                            y = count)) + 
-                geom_col() + 
-                labs(title = "Violence during Protests",
-                     subtitle = "Summer and Fall 2020",
-                     x = "Type of Protest",
-                     y = "Number of Protests") +
-                scale_x_discrete(drop = FALSE) + 
-                coord_flip() + 
-                theme_minimal() + 
-                scale_fill_brewer()
+                  geom_col(fill = "#d1495b", color = "white", alpha = 0.7) + 
+                  labs(title = "Violence during Protests",
+                       x = "Type of Protest",
+                       y = "Number of Protests") +
+                  scale_x_discrete(drop = FALSE, breaks = c("Mob violence",
+                                                          "Violent demonstration",
+                                                          "Protest with intervention",
+                                                          "Peaceful protest"),
+                                   labels = c("Mob \n violence",
+                                              "Violent \n demonstration",
+                                              "Protest with \n intervention",
+                                              "Peaceful \n protest")) + 
+                  theme_economist() + 
+                  coord_flip() + 
+                  theme(axis.text.y = element_text(size = 12, hjust = 1),
+                        axis.text.x = element_text(size = 12),
+                        axis.title.x = element_text(size = 14, face = "bold",
+                                                    vjust = -1),
+                        axis.title.y = element_text(size = 14, face = "bold",
+                                                    vjust = 3))
         }
         violence_plot(input$plot_type)
         })
@@ -173,22 +186,6 @@ server <- function(input, output) {
                           percent_black_hispanic = input$percent_black_hispanic,
                           teen_birth_rate = input$teen_birth_rate)
         
-        new_obs_default <- tibble(number_protests = 4.89,
-                                  gini_score = 0.45,
-                                  poverty = 12.41,
-                                  housing_problems = 13.87,
-                                  physical_distress = 12.13,
-                                  mental_distress = 12.99,
-                                  segregation_index_2 = 30.81,
-                                  police_killings = 2.7,
-                                  percent_black_hispanic = 18.67,
-                                  teen_birth_rate = 2.98)
-        
-        default <- posterior_predict(fit_all, newdata = new_obs_default) %>%
-            as_tibble() %>%
-            mutate_all(as.numeric) %>%
-            rename("default" = `1`)
-        
         new <- posterior_predict(fit_all, newdata = new_obs) %>%
             as_tibble() %>%
             mutate_all(as.numeric) %>%
@@ -203,12 +200,23 @@ server <- function(input, output) {
         full %>%
             ggplot(aes(x = number_violent, fill = pp_results)) +
             geom_histogram(aes(y = after_stat(count/sum(count))), bins = 75,
-                           color = "white", position = "identity", alpha = 0.5) +
+                           color = "white", position = "identity", alpha = 0.6) +
             scale_y_continuous(labels = scales::percent_format()) + 
             xlim(c(-10,20)) +
             labs(x = "Number of Violent Protests",
-                 y = "Probability") +
-            theme_bw()
+                 y = "Probability",
+                 title = "Model: Number of Violent Protests \n in a Hypothetical County") +
+            theme_economist() + 
+            theme(title = element_text(size = 10), 
+                  legend.text = element_text(size = 10),
+                  axis.text.y = element_text(size = 8),
+                  axis.text.x = element_text(size = 8),
+                  axis.title.x = element_text(size = 10, face = "bold"),
+                  axis.title.y = element_text(size = 10, face = "bold")) +
+            scale_fill_manual(name = "", 
+                              breaks = c("default", "new"),
+                              labels = c("Average County", "Hypothetical County"),
+                              values = c("#00798c", "#d1495b"))
     })
     
 }
