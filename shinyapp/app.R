@@ -138,7 +138,7 @@ server <- function(input, output) {
                                                                  "Protest with intervention",
                                                                  "Peaceful protest")), 
                            y = count)) + 
-                geom_col(fill = "sienna", color = "white", alpha = 0.7) + 
+                geom_col(fill = "dodgerblue4", color = "white", alpha = 0.7) + 
                 labs(title = "Violence during Protests",
                      subtitle = "Summer and Fall 2020",
                      x = "Type of Protest",
@@ -216,7 +216,7 @@ server <- function(input, output) {
             scale_fill_manual(name = "", 
                               breaks = c("default", "new"),
                               labels = c("Average County", "Hypothetical County"),
-                              values = c("darkgray", "sienna"))
+                              values = c("dodgerblue4", "darkgoldenrod"))
     })
     
 }
