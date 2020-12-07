@@ -20,11 +20,9 @@ library(naniar)
 library(ggthemes)
 library(shinythemes)
 
-acled_data <- readRDS("acled_data.RDS")
+acled_for_mapping <- readRDS("acled_for_mapping.RDS")
 rural <- readRDS("rural.RDS")
-acled_data_11_6 <- readRDS("acled_data_11_6.RDS")
 acled_data_11_12 <- readRDS("acled_data_11_12.RDS")
-model_12_2 <- readRDS("model_12_2.RDS")
 model <- readRDS("model_12_6.RDS")
 default <- readRDS("default_12_6.RDS")
 
@@ -65,43 +63,38 @@ ui <- navbarPage(theme = shinytheme("sandstone"),
              ),
     tabPanel("Modeling",
              titlePanel("What factors are correlated with the number of violent protests?"),
-             sidebarLayout(
-                 sidebarPanel(
-                     sliderInput("number_protests",
-                                 label = "Total Number of Protests",
-                                 min = 0, max = 373, value = 4.89),
-                     sliderInput("gini_score",
-                                 label = "Income Inequality (higher = greater inequality)",
-                                 min = 0, max = 1, value = 0.45),
-                     sliderInput("poverty",
-                                 label = "Poverty Rate",
-                                 min = 2, max = 34, value = 12.41),
-                     sliderInput("housing_problems",
-                                 label = "Severe Housing Problems Rate",
-                                 min = 0, max = 70, value = 13.87),
-                     sliderInput("physical_distress",
-                                 label = "Physical Distress Rate",
-                                 min = 7, max = 25, value = 12.13),
-                     sliderInput("mental_distress",
-                                 label = "Mental Distress Rate",
-                                 min = 8, max = 21, value = 12.99),
-                     sliderInput("segregation_index_2",
-                                 label = "Residential Segregation (higher = greater segregation)",
-                                 min = 0, max = 90, value = 30.81),
-                     sliderInput("police_killings",
-                                 label = "Number of Police Killings",
-                                 min = 0, max = 364, value = 2.7),
-                     sliderInput("percent_black_hispanic",
-                                 label = "% Black and Hispanic",
-                                 min = 0, max = 96, value = 18.67),
-                     sliderInput("teen_birth_rate",
-                                 label = "Teen Birth Rate",
-                                 min = 0, max = 10, value = 2.98)
-                 ),
-                 
-                 mainPanel(plotOutput("modelPlot"))
-             ),
-    ),
+             fluidRow(column(width = 9, wellPanel(plotOutput("modelPlot"))),
+                      column(width = 3, wellPanel(sliderInput("number_protests",
+                                                              label = "Total Number of Protests",
+                                                              min = 0, max = 373, value = 4.89),
+                                                  sliderInput("gini_score",
+                                                              label = "Income Inequality (higher = greater inequality)",
+                                                              min = 0, max = 1, value = 0.45),
+                                                  sliderInput("poverty",
+                                                              label = "Poverty Rate",
+                                                              min = 2, max = 34, value = 12.41),
+                                                  sliderInput("housing_problems",
+                                                              label = "Severe Housing Problems Rate",
+                                                              min = 0, max = 70, value = 13.87),
+                                                  sliderInput("physical_distress",
+                                                              label = "Physical Distress Rate",
+                                                              min = 7, max = 25, value = 12.13),
+                                                  sliderInput("mental_distress",
+                                                              label = "Mental Distress Rate",
+                                                              min = 8, max = 21, value = 12.99),
+                                                  sliderInput("segregation_index_2",
+                                                              label = "Residential Segregation (higher = greater segregation)",
+                                                              min = 0, max = 90, value = 30.81),
+                                                  sliderInput("police_killings",
+                                                              label = "Number of Police Killings",
+                                                              min = 0, max = 364, value = 2.7),
+                                                  sliderInput("percent_black_hispanic",
+                                                              label = "% Black and Hispanic",
+                                                              min = 0, max = 96, value = 18.67),
+                                                  sliderInput("teen_birth_rate",
+                                                              label = "Teen Birth Rate",
+                                                              min = 0, max = 10, value = 2.98))))),
+                          
     tabPanel("About", 
              titlePanel("About"),
              h3("Project Background and Motivations"),
@@ -114,14 +107,14 @@ ui <- navbarPage(theme = shinytheme("sandstone"),
 server <- function(input, output) {
 
     output$mapPlot <- renderLeaflet({
-        subset <- acled_data_11_6 %>%
+        subset <- acled_for_mapping %>%
             mutate(event_date = ymd(event_date)) %>%
             filter(event_date %in% (input$daterange1[1]:input$daterange1[2])) %>%
             filter(sub_event_type == input$var)
         
         leaflet(rural) %>%
             addTiles() %>%
-            addCircleMarkers(lng = subset$longitude, lat = subset$latitude, radius = 0.1)
+            addCircles(lng = subset$longitude, lat = subset$latitude, radius = 0.1, color = "navy")
     })
     
     output$protestPlot <- renderPlot({
@@ -140,7 +133,6 @@ server <- function(input, output) {
                            y = count)) + 
                 geom_col(fill = "dodgerblue4", color = "white", alpha = 0.7) + 
                 labs(title = "Violence during Protests",
-                     subtitle = "Summer and Fall 2020",
                      x = "Type of Protest",
                      y = "Number of Protests") +
                 scale_x_discrete(drop = FALSE, breaks = c("Mob violence",
@@ -153,8 +145,8 @@ server <- function(input, output) {
                                             "Peaceful \n protest")) + 
                 theme_economist() + 
                 coord_flip() + 
-                theme(axis.text.y = element_text(size = 8, hjust = 1),
-                      axis.text.x = element_text(size = 8),
+                theme(axis.text.y = element_text(size = 10, hjust = 1),
+                      axis.text.x = element_text(size = 10),
                       axis.title.x = element_text(size = 12, face = "bold",
                                                   vjust = -1),
                       axis.title.y = element_text(size = 12, face = "bold",

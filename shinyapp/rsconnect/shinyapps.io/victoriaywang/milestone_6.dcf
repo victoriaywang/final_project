@@ -5,9 +5,9 @@ account: victoriaywang
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 3182162
-bundleId: 3952242
+bundleId: 3955857
 url: https://victoriaywang.shinyapps.io/milestone_6/
-when: 1607296429.15379
+when: 1607361944.34516
 asMultiple: FALSE
 asStatic: FALSE
 ignoredFiles: violence_comparison.RDS

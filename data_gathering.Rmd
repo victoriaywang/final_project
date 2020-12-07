@@ -16,6 +16,8 @@ library(rstanarm)
 library(naniar)
 library(tidymodels)
 library(ggthemes)
+library(gtsummary)
+library(broom.mixed)
 ```
 
 Dataset
@@ -221,22 +223,21 @@ health <- inner_join(health_1, health_2, by = "district") %>%
 ```
 
 Parameter dataset
-
 ```{r}
 model <- left_join(health, police_killings, by = "district") %>%
   left_join(model_violence, by = "district") %>%
   left_join(census_data, by = "district") %>%
   mutate(percent_black_hispanic = percent_black + percent_hispanic,
          number_protests = ifelse(is.na(number_protests), yes = 0, 
-                                  no = model$number_protests),
+                                  no = number_protests),
          number_violent = ifelse(is.na(number_violent), yes = 0, 
-                                 no = model$number_violent),
+                                 no = number_violent),
          police_killings = ifelse(is.na(police_killings), yes = 0, 
-                                  no = model$police_killings),
+                                  no = police_killings),
          teen_birth_rate = teen_birth_rate / 10)
 ```
 
-Modeling: all
+Model
 ```{r}
 fit_all <- stan_glm(data = model,
                     formula = number_violent ~ teen_birth_rate + housing_problems + 
@@ -244,7 +245,10 @@ fit_all <- stan_glm(data = model,
                       police_killings + gini_score + number_protests + 
                       poverty + percent_black_hispanic, 
                     refresh = 0)
+```
 
+Model (cont.)
+```{r}
 new_obs <- tibble(number_protests = 7,
                                   gini_score = 0.9,
                                   poverty = 80,
@@ -307,119 +311,17 @@ full %>%
                       values = c("#00798c", "#d1495b"))
 ```
 
-
-Modeling: Income Inequality
+Table of results
 ```{r}
-model_violence_gini <- model_violence %>%
-  left_join(gini_final, by = "district") %>%
-  select(district, violence, gini_score, proportion_violent)
-
-fit_obj_gini <- stan_glm(data = model_violence_gini,
-                    proportion_violent ~ gini_score - 1,
-                    refresh = 0)
-
-new_obs_gini <- tibble(gini_score = c(0.3288, 0.4238, 0.4489, 0.6592))
-
-pp_gini <- posterior_predict(fit_obj_gini, newdata = new_obs_gini) %>%
-  as_tibble() %>%
-  mutate_all(as.numeric) %>%
-  rename("min" = `1`,
-         "low" = `2`,
-         "high" = `3`,
-         "max" = `4`) %>%
-  pivot_longer(cols = min:max,
-               names_to = "gini",
-               values_to = "proportion_violent")
-
-pp_gini_mean <- pp_gini %>%
-  group_by(gini) %>%
-  summarize(mean_violence = mean(proportion_violent), .groups = "drop") %>%
-  arrange(mean_violence)
-
-pp_gini_mean$mean_violence
-
-ggplot(pp_gini, aes(x = proportion_violent, fill = gini)) +
-  geom_histogram(aes(y = after_stat(count/sum(count))), bins = 75,
-                 color = "white", position = "identity", alpha = 0.5) +
-  geom_vline(xintercept = pp_gini_mean$mean_violence[1]) +
-  geom_vline(xintercept = pp_gini_mean$mean_violence[2]) +
-  geom_vline(xintercept = pp_gini_mean$mean_violence[3]) +
-  geom_vline(xintercept = pp_gini_mean$mean_violence[4]) +
-  scale_y_continuous(labels = scales::percent_format()) + 
-  labs(title = "Posterior Distribution for Violence based on Gini",
-       x = "Proportion Violent",
-       y = "Probability") +
-  theme_bw()
+tbl_regression(fit_all, intercept = TRUE, 
+               estimate_fun = function(x) style_sigfig(x, digits = 3)) %>%
+  as_gt() %>%
+  gt::tab_header(title = "Regression of Violent Protest Occurrence")
 
 ```
 
-Modeling: Poverty
-```{r}
-model_violence_poverty <- model_violence %>%
-  left_join(poverty_final, by = "district") %>%
-  select(district, violence, poverty, proportion_violent) %>%
-  drop_na(poverty)
 
-fit_obj_poverty <- stan_glm(data = model_violence_poverty,
-                    proportion_violent ~ poverty - 1,
-                    refresh = 0)
 
-quantile(model_violence_poverty$poverty)
-
-new_obs_poverty <- tibble(poverty = c(8.7, 15.5))
-
-pp_poverty <- posterior_predict(fit_obj_poverty, newdata = new_obs_poverty) %>%
-  as_tibble() %>%
-  mutate_all(as.numeric) %>%
-  rename("low" = `1`,
-         "high" = `2`) %>%
-  pivot_longer(cols = low:high,
-               names_to = "poverty",
-               values_to = "proportion_violent")
-
-ggplot(pp_poverty, aes(x = proportion_violent, fill = poverty)) +
-  geom_histogram(aes(y = after_stat(count/sum(count))), bins = 75,
-                 color = "white", position = "identity", alpha = 0.5) +
-  scale_y_continuous(labels = scales::percent_format()) + 
-  labs(title = "Posterior Distribution for Poverty Rate",
-       x = "Poverty Rate",
-       y = "Probability") +
-  theme_bw()
-
-```
-
-Modeling: Income
-```{r}
-model_violence_income <- model_violence %>%
-  left_join(income_final, by = "district") %>%
-  select(district, violence, income, proportion_violent) %>%
-  drop_na(income)
-
-fit_obj_income <- stan_glm(data = model_violence_income,
-                    proportion_violent ~ income - 1,
-                    refresh = 0)
-
-new_obs_income <- tibble(income = c(53518, 72736))
-
-pp_income <- posterior_predict(fit_obj_income, newdata = new_obs_income) %>%
-  as_tibble() %>%
-  mutate_all(as.numeric) %>%
-  rename("low" = `1`,
-         "high" = `2`) %>%
-  pivot_longer(cols = low:high,
-               names_to = "income",
-               values_to = "proportion_violent")
-
-ggplot(pp_income, aes(x = proportion_violent, fill = income)) +
-  geom_histogram(aes(y = after_stat(count/sum(count))), bins = 75,
-                 color = "white", position = "identity", alpha = 0.5) +
-  scale_y_continuous(labels = scales::percent_format()) + 
-  labs(title = "Posterior Distribution for Violence based on Income",
-       x = "Proportion Violent",
-       y = "Probability") +
-  theme_bw()
-
-```
 General Protest Info
 ```{r}
 protesters_type <- levels(acled_data$assoc_actor_1)
@@ -522,7 +424,7 @@ subset <- acled_data_new %>%
 
 leaflet(rural) %>%
   addTiles() %>%
-  addCircleMarkers(lng = subset$longitude, lat = subset$latitude, radius = 0.1)
+  addCircles(lng = subset$longitude, lat = subset$latitude, radius = 0.1, color = "navy")
 ```
 
 interesting final projects:
