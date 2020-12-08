@@ -58,8 +58,7 @@ ui <- navbarPage(theme = shinytheme("sandstone"),
              ),
     
     tabPanel("Protest Subject and Violence",
-             titlePanel("How are the subjects of protests and violence 
-                        correlated?"),
+             titlePanel("Number of Protests Based on Protest Subject"),
              
              # Select the subject of the protest (BLM, pro-police, etc). 
              
@@ -92,7 +91,9 @@ ui <- navbarPage(theme = shinytheme("sandstone"),
              # of the dataset.
              
              fluidRow(column(width = 4, 
-                             wellPanel(sliderInput("number_protests",
+                             wellPanel(p("Note: more detailed information about each of these parameters can be found under the", 
+                                         tags$em("Model: Interpretation"), "tab."),
+                                       sliderInput("number_protests",
                                                    label = "Total Number of Protests",
                                                    min = 0, max = 373, value = 4.89),
                                        sliderInput("gini_score",
@@ -357,7 +358,6 @@ server <- function(input, output) {
           # changes the y-axis from a count to a probability, and the 
           # percent_format() clarifies that it is a percentage. 
           
-            xlim(c(-10,20)) +
             labs(x = "Number of Violent Protests",
                  y = "Probability",
                  title = "Posterior Prediction Distribution",
