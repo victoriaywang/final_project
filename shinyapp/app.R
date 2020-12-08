@@ -49,7 +49,11 @@ ui <- navbarPage(theme = shinytheme("sandstone"),
                                  selected = "Peaceful protest"),
                      dateRangeInput("daterange1", "Date range:",
                                     start = "2020-05-24",
-                                    end = "2020-10-31")
+                                    end = "2020-10-31"),
+                     p(tags$em("Note: darker points indicate a larger number of protests. 
+                               The map is created this way because the data regarding protests 
+                               included general county-level location coordinates rather than the 
+                               specific location of the protest itself."))
                      ),
                  
                  # Output is the leaflet map created in the server. 
@@ -81,6 +85,12 @@ ui <- navbarPage(theme = shinytheme("sandstone"),
     tabPanel("Model: Posterior",
              titlePanel("What factors are correlated with the number of 
                         violent protests?"),
+             p("Use the sliders to change the ten given parameters, creating a hypothetical county. 
+                                         The model will then output a posterior probability distribution of the number of violent protests 
+                                         that would occur in this hypothetical county. Sliders are currently set to represent the mean value for 
+                                         each parameter for all counties in this dataset."),
+             p(tags$em("Note: more detailed information about each of these parameters can be found under the"), 
+               "Model: Interpretation", tags$em("tab.")),
              
              # Used fluid_row, columns, and wellPanel to allow for greater 
              # flexibility in adjusting size of the panels. 
@@ -91,8 +101,7 @@ ui <- navbarPage(theme = shinytheme("sandstone"),
              # of the dataset.
              
              fluidRow(column(width = 4, 
-                             wellPanel(p("Note: more detailed information about each of these parameters can be found under the", 
-                                         tags$em("Model: Interpretation"), "tab."),
+                             wellPanel(p(tags$h4(tags$b("Violent Protests in a Hypothetical County"))),
                                        sliderInput("number_protests",
                                                    label = "Total Number of Protests",
                                                    min = 0, max = 373, value = 4.89),
@@ -177,6 +186,7 @@ ui <- navbarPage(theme = shinytheme("sandstone"),
                I hope to understand what factors might help predict the likelihood of a protest turning violent. Combining protest data with county-level data about economic indicators (economic inequality, poverty, 
                median household income, social mobility), demographic information (level of education, teenage birth rate, race), other indicators of quality of life (premature death rate, violent crime rate, housing problems), 
                and other interesting indicators (political ideology), I find that one of the strongest predictors of violence at protests is income inequality."),
+             p(tags$a(href = "https://github.com/victoriaywang/final_project", "Here"), "is a link to the GitHub repo."),
              h3("Data"),
              p("Data regarding protests comes primarily from", 
                tags$a(href = "https://acleddata.com/special-projects/us-crisis-monitor/", "The Armed Conflict Location & Event Data Project’s U.S. Crisis Monitor,"),
