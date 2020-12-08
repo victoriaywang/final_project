@@ -19,6 +19,7 @@ library(ggthemes)
 library(gtsummary)
 library(broom.mixed)
 library(gt)
+library(sf)
 ```
 
 Initial Cleaning of ACLED Data
@@ -392,4 +393,13 @@ rural <- get_decennial(geography = "state",
 
 # This sets up the map that leaflet will use to create the map with all
 # ACLED protests. 
+
+subset <- acled_data_new %>%
+  mutate(event_date = ymd(event_date)) %>%
+  filter(event_date <= "2020-05-30")
+
+map <- leaflet(rural) %>%
+  addTiles() %>%
+  addCircles(lng = subset$longitude, lat = subset$latitude, radius = 0.1, 
+             color = "navy", opacity = 0.2)
 ```
