@@ -314,7 +314,7 @@ Model: Fit
 fit_all <- stan_glm(data = model,
                     formula = number_violent ~ teen_birth_rate + housing_problems + 
                       physical_distress + mental_distress + segregation_index_2 + 
-                      police_killings + gini_score + number_protests + 
+                      police_killings + gini_score + number_protests +
                       poverty + percent_black_hispanic, 
                     weights = population,
                     refresh = 0)

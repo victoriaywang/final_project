@@ -5,9 +5,9 @@ account: victoriaywang
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 3367891
-bundleId: 3985510
+bundleId: 3988909
 url: https://victoriaywang.shinyapps.io/protests/
-when: 1607922585.86109
+when: 1607979858.53316
 asMultiple: FALSE
 asStatic: FALSE
 ignoredFiles: default_12_6.RDS
