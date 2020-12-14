@@ -28,11 +28,12 @@ rural <- readRDS("rural.RDS")
 acled_data_11_12 <- readRDS("acled_data_11_12.RDS")
 model <- readRDS("model_12_6.RDS")
 default <- readRDS("default_12_8.RDS")
+acled_w_subjects <- readRDS("acled_w_subjects.RDS")
 
 ui <- navbarPage(theme = shinytheme("sandstone"), 
                  "Violence at Protests",
     tabPanel("Mapping Protests",
-             titlePanel("Mapping protests in the United States"),
+             titlePanel("Mapping Protests in the United States"),
 
              # Select category of protest (peaceful, violent, etc). Then,
              # select a date range. The date range includes all of the dates
@@ -40,6 +41,9 @@ ui <- navbarPage(theme = shinytheme("sandstone"),
              
              sidebarLayout(
                  sidebarPanel(
+                     dateRangeInput("daterange1", "Date Range",
+                                    start = "2020-05-24",
+                                    end = "2020-10-31"),
                      selectInput("type",
                                  label = "Type of Protest",
                                  choices = list("Peaceful protest", 
@@ -47,100 +51,76 @@ ui <- navbarPage(theme = shinytheme("sandstone"),
                                                 "Violent demonstration",
                                                 "Mob violence"),
                                  selected = "Peaceful protest"),
-                     dateRangeInput("daterange1", "Date range:",
-                                    start = "2020-05-24",
-                                    end = "2020-10-31"),
-                     p(tags$em("Note: darker points indicate a larger number of protests. 
-                               The map is created this way because the data regarding protests 
-                               included general county-level location coordinates rather than the 
-                               specific location of the protest itself."))
+                     p(tags$b("Defining Protest Types:")),
+                     tags$ul(
+                         tags$li(tags$b("Peaceful protest"), "is used when demonstrators 
+                       are engaged in a protest while not engaging in violence 
+                       or other forms of rioting behaviour."),
+                         tags$li(tags$b("Protest with intervention"), "is used when 
+                       individuals are engaged in a peaceful protest during 
+                       which there is an attempt to disperse or suppress the 
+                       protest without serious/lethal injuries being reported or
+                       the targeting of protesters with lethal weapons."),
+                         tags$li(tags$b("Violent demonstration"), "is used when a group of
+                       individuals engages in a demonstration involving 
+                       violence. Examples of rioting behaviour include 
+                       vandalism; road-blocking using barricades, burning tires,
+                       or other material; other types of violent and/or 
+                       destructive behaviour are also included here."),
+                         tags$li(tags$b("Mob violence"), "is used when rioters violently 
+                       interact with other rioters, another armed group, or 
+                       civilians."))
                      ),
                  
                  # Output is the leaflet map created in the server. 
                  
-                 mainPanel(leafletOutput("mapPlot"))),
+                 mainPanel(leafletOutput("mapPlot"),
+                           "* * *",
+                           p(tags$em("Note: darker points indicate a larger number of protests. 
+                               The map is created this way because the data regarding protests 
+                               included general county-level location coordinates rather than the 
+                               specific location of the protest itself."))
+                           )),
              ),
     
-    tabPanel("Protest Subject and Violence",
-             titlePanel("Number of Protests Based on Protest Subject"),
+    tabPanel("Visualizing Protest Data",
+             titlePanel("Data Visualizations"),
              
              # Select the subject of the protest (BLM, pro-police, etc). 
              
-             sidebarLayout(
-                 sidebarPanel(
-                     selectInput("plot_type",
-                                 label = "Subject of Protest",
-                                 choices = list("BLM" = "blm", 
-                                                "Militia" = "militia", 
-                                                "Pro-Police" = "pro_police",
-                                                "Labor" = "labor")
-                                 )),
+             fluidRow(
+                 column(width = 8, wellPanel(plotOutput("timePlot"))),
+                 column(width = 4, 
+                             wellPanel(
+                                 checkboxGroupInput("protest_type",
+                                 label = "Select the type of protest:",
+                                 choices = list("Peaceful protest",
+                                                "Protest with intervention",
+                                                "Violent demonstration",
+                                                "Mob violence"),
+                                 selected = c("Peaceful protest",
+                                               "Protest with intervention",
+                                               "Violent demonstration",
+                                               "Mob violence"))
+                                 ))),
+             
+             fluidRow(
+                 column(width = 8, wellPanel(plotOutput("protestPlot"))),
+                 column(width = 4, 
+                             wellPanel(
+                                 selectInput("plot_type",
+                                             label = "Select the subject of protest",
+                                             choices = list("BLM" = "blm", 
+                                                            "Militia" = "militia", 
+                                                            "Pro-Police" = "pro_police",
+                                                            "Labor" = "labor")
+                             ))))
                  
                  # Output is the plot of different types of protests by the
                  # subject of the protest, created in the server. 
-                 
-                 mainPanel(plotOutput("protestPlot")))
              ),
     
-    tabPanel("Model: Posterior",
-             titlePanel("What factors are correlated with the number of 
-                        violent protests?"),
-             p("Use the sliders to change the ten given parameters, creating a hypothetical county. 
-                                         The model will then output a posterior probability distribution of the number of violent protests 
-                                         that would occur in this hypothetical county. Sliders are currently set to represent the mean value for 
-                                         each parameter for all counties in this dataset."),
-             p(tags$em("Note: more detailed information about each of these parameters can be found under the"), 
-               "Model: Interpretation", tags$em("tab.")),
-             
-             # Used fluid_row, columns, and wellPanel to allow for greater 
-             # flexibility in adjusting size of the panels. 
-             
-             # Set the default values for the sliderInput as the mean values 
-             # for each parameter across my dataset, to two decimal places.
-             # The max and min is the closest integer value to the max and min
-             # of the dataset.
-             
-             fluidRow(column(width = 4, 
-                             wellPanel(p(tags$h4(tags$b("Violent Protests in a Hypothetical County"))),
-                                       sliderInput("number_protests",
-                                                   label = "Total Number of Protests",
-                                                   min = 0, max = 373, value = 4.89),
-                                       sliderInput("gini_score",
-                                                   label = "Income Inequality (higher = greater inequality)",
-                                                   min = 0, max = 1, value = 0.45),
-                                       sliderInput("poverty",
-                                                   label = "Poverty Rate",
-                                                   min = 2, max = 34, value = 12.41),
-                                       sliderInput("housing_problems",
-                                                   label = "Severe Housing Problems Rate",
-                                                   min = 0, max = 70, value = 9.87),
-                                       sliderInput("physical_distress",
-                                                   label = "Physical Distress Rate",
-                                                   min = 7, max = 25, value = 12.13),
-                                       sliderInput("mental_distress",
-                                                   label = "Mental Distress Rate",
-                                                   min = 8, max = 21, value = 12.99),
-                                       sliderInput("segregation_index_2",
-                                                   label = "Residential Segregation (higher = greater segregation)",
-                                                   min = 0, max = 90, value = 30.81),
-                                       sliderInput("police_killings",
-                                                   label = "Number of Police Killings",
-                                                   min = 0, max = 364, value = 2.7),
-                                       sliderInput("percent_black_hispanic",
-                                                   label = "% Black and Hispanic",
-                                                   min = 0, max = 96, value = 18.67),
-                                       sliderInput("teen_birth_rate",
-                                                   label = "Teen Birth Rate",
-                                                   min = 0, max = 10, value = 2.98))),
-                     
-                      # Output will be the posterior probability distribution 
-                      # created in the server. 
-                      
-                      column(width = 8, 
-                             wellPanel(plotOutput("modelPlot"))))
-             ),
-    
-    tabPanel("Model: Interpretation",
+    tabPanel("Model",
              titlePanel("Model Interpretation"),
              
              # Again, using fluid_row rather than sidebarPanel to allow for
@@ -148,13 +128,10 @@ ui <- navbarPage(theme = shinytheme("sandstone"),
              # of the table created using gt. The right panel is text that 
              # offers some information and interpretation of my model.  
              
-             fluidRow(column(width = 4, wellPanel(tags$h4(tags$b("Regression Table")),
-                                                  gt_output("regressionTable"))),
-                      
-                      column(width = 8, wellPanel(
-                          tags$h4(tags$b("Discussion")),
+             fluidRow(column(width = 8, wellPanel(
+                          tags$h4(tags$b("About the Model")),
                           
-                          p("I gathered and cleaned up data from various sources, ending up with 24 parameters that were not directly related to protests:",
+                          p("I gathered and cleaned data from various sources, ending up with 24 parameters that were not directly related to protests:",
                           tags$em("population, gini score (inequality), income, poverty, unemployment rate, % adults with less than a high school education, 
                           housing problems rate, % homeowners, segregation index 1, segregation index 2, % black, % non-hispanic white, % hispanic, 
                           % black and hispanic, teen birth rate, premature death rate, preventable hospitalization rate, life expectancy, physical distress,
@@ -175,23 +152,84 @@ ui <- navbarPage(theme = shinytheme("sandstone"),
                           tags$li(tags$b("Residential Segregation (segregation_index_2)"), "= index of dissimilarity where higher values indicate greater residential segregation between non-White and White county residents."),
                           tags$li(tags$b("Number of Police Killings (police_killings)"), "= number of murders by police officers"),
                           tags$li(tags$b("% Black and Hispanic (percent_black_hispanic)"), "= % Black and Hispanic"),
-                          tags$li(tags$b("Teen Birth Rate (teen_birth_rate)"), "= births per 100 females ages 15-19")
-                      )
-)))),
+                          tags$li(tags$b("Teen Birth Rate (teen_birth_rate)"), "= births per 100 females ages 15-19")),
+                      tags$h4(tags$b("Interpretation")),
+                      p("Based on the results of the model...")
+                      )),
+                      column(width = 4, wellPanel(gt_output("regressionTable")))
+)),
+
+tabPanel("Violent Protests in a Hypothetical County",
+         titlePanel("What factors are correlated with the number of 
+                        violent protests?"),
+         p("Use the sliders to change the ten given parameters, creating a hypothetical county. 
+                                         The model will then output a posterior probability distribution of the number of violent protests 
+                                         that would occur in this hypothetical county. Sliders are currently set to represent the mean value for 
+                                         each parameter for all counties in this dataset."),
+         p(tags$em("Note: more detailed information about each of these parameters can be found under the"), 
+           "Model: Interpretation", tags$em("tab.")),
+         
+         # Used fluid_row, columns, and wellPanel to allow for greater 
+         # flexibility in adjusting size of the panels. 
+         
+         # Set the default values for the sliderInput as the mean values 
+         # for each parameter across my dataset, to two decimal places.
+         # The max and min is the closest integer value to the max and min
+         # of the dataset.
+         
+         fluidRow(column(width = 4, 
+                         wellPanel(p(tags$h4(tags$b("Violent Protests in a Hypothetical County"))),
+                                   sliderInput("number_protests",
+                                               label = "Total Number of Protests",
+                                               min = 0, max = 373, value = 4.89),
+                                   sliderInput("gini_score",
+                                               label = "Income Inequality (higher = greater inequality)",
+                                               min = 0, max = 1, value = 0.45),
+                                   sliderInput("poverty",
+                                               label = "Poverty Rate",
+                                               min = 2, max = 34, value = 12.41),
+                                   sliderInput("housing_problems",
+                                               label = "Severe Housing Problems Rate",
+                                               min = 0, max = 70, value = 9.87),
+                                   sliderInput("physical_distress",
+                                               label = "Physical Distress Rate",
+                                               min = 7, max = 25, value = 12.13),
+                                   sliderInput("mental_distress",
+                                               label = "Mental Distress Rate",
+                                               min = 8, max = 21, value = 12.99),
+                                   sliderInput("segregation_index_2",
+                                               label = "Residential Segregation (higher = greater segregation)",
+                                               min = 0, max = 90, value = 30.81),
+                                   sliderInput("police_killings",
+                                               label = "Number of Police Killings",
+                                               min = 0, max = 364, value = 2.7),
+                                   sliderInput("percent_black_hispanic",
+                                               label = "% Black and Hispanic",
+                                               min = 0, max = 96, value = 18.67),
+                                   sliderInput("teen_birth_rate",
+                                               label = "Teen Birth Rate",
+                                               min = 0, max = 10, value = 2.98))),
+                  
+                  # Output will be the posterior probability distribution 
+                  # created in the server. 
+                  
+                  column(width = 8, 
+                         wellPanel(plotOutput("modelPlot"))))
+),
                           
     tabPanel("About", 
              titlePanel("About"),
              h3("Project Background and Motivations"),
-             p("My final project studies the nationwide protests, peaceful and violent, of this past summer and fall. Using protest data from the Armed Conflict Location & Event Data Project’s US Crisis Monitor, 
-               I hope to understand what factors might help predict the likelihood of a protest turning violent. Combining protest data with county-level data about economic indicators (economic inequality, poverty, 
-               median household income, social mobility), demographic information (level of education, teenage birth rate, race), other indicators of quality of life (premature death rate, violent crime rate, housing problems), 
-               and other interesting indicators (political ideology), I find that one of the strongest predictors of violence at protests is income inequality."),
+             p("My final project studies the nationwide protests, peaceful and violent, of the summer and fall of 2020. Using protest data from the Armed Conflict Location & Event Data Project’s", 
+               tags$em("US Crisis Monitor,"),
+               "I hope to understand what factors might help predict the likelihood of a protest turning violent. Combining protest data with county-level data about economic indicators (economic inequality, poverty, 
+               median household income, social mobility), demographic information (level of education, teenage birth rate, race), and other indicators of quality of life (premature death rate, violent crime rate, housing problems), I find that one of the strongest predictors of violence at protests is income inequality."),
              p(tags$a(href = "https://github.com/victoriaywang/final_project", "Here"), "is a link to the GitHub repo."),
              h3("Data"),
-             p("Data regarding protests comes primarily from", 
+             p("Data regarding protests come primarily from", 
                tags$a(href = "https://acleddata.com/special-projects/us-crisis-monitor/", "The Armed Conflict Location & Event Data Project’s U.S. Crisis Monitor,"),
                "which offers data on political violence, demonstrations, and strategic developments in the United States beginning May 24, 2020."),
-             p("Data for county-level parameters comes primarily from:"),
+             p("Data for county-level parameters come from:"),
              p(tags$ul(
                  tags$li(tags$a(href = "https://data.census.gov/cedsci/", "The Census Bureau")),
                  tags$li(tags$a(href = "https://mappingpoliceviolence.org/", "Mapping Police Violence")),
@@ -265,7 +303,7 @@ server <- function(input, output) {
             # and "Mob Violence" the most. 
             
                 geom_col(fill = "dodgerblue4", color = "white", alpha = 0.7) + 
-                labs(title = "Violence during Protests",
+                labs(title = "Violence at Protests",
                      x = "Type of Protest",
                      y = "Number of Protests") +
                 scale_x_discrete(drop = FALSE, breaks = c("Mob violence",
@@ -296,6 +334,36 @@ server <- function(input, output) {
         }
         violence_plot(input$plot_type)
         })
+    
+    output$timePlot <- renderPlot({
+        acled_by_date <- acled_w_subjects %>%
+            filter(sub_event_type %in% c("Peaceful protest", "Protest with intervention",
+                                         "Violent demonstration", "Mob violence")) %>%
+            group_by(event_date, sub_event_type) %>%
+            summarize(count = n(), .groups = "drop", subject) %>%
+            filter(sub_event_type %in% input$protest_type)
+        
+        ggplot(acled_by_date, aes(x = event_date, y = count, color = sub_event_type)) +
+            geom_line() +
+            scale_color_manual(breaks = c("Peaceful protest", "Protest with intervention",
+                                          "Violent demonstration", "Mob violence"),
+                               name = "Type of Protest",
+                               values = c("dodgerblue4", "seagreen4", 
+                                          "#d1495b", "#edae49"),
+                               labels = c("Peaceful protest", "Protest with intervention",
+                                          "Violent demonstration", "Mob violence")) + 
+            theme_economist() + 
+            labs(x = "Date", y = "Number of Protests",
+                 title = "Protests Over Time") + 
+            theme(title = element_text(size = 10), 
+                  legend.text = element_text(size = 10),
+                  axis.text.y = element_text(size = 8),
+                  axis.text.x = element_text(size = 8),
+                  axis.title.x = element_text(size = 10, face = "bold"),
+                  axis.title.y = element_text(size = 10, face = "bold"),
+                  panel.background = element_rect(fill = "white"), 
+                  plot.background = element_rect(fill = "white")) 
+    })
     
     output$modelPlot <- renderPlot({
         fit <- stan_glm(data = model,
@@ -403,7 +471,8 @@ server <- function(input, output) {
         tbl_regression(fit, 
                        estimate_fun = function(x) style_sigfig(x, digits = 3)) %>%
             as_gt() %>%
-            gt::tab_header(title = "Regression of Violent Protest Occurrence")
+            gt::tab_header(title = "Regression of Violent Protest Occurrence",
+                           subtitle = "The Effect of Various Parameters on Number of Violent Protests")
         
         # I used tbl_regression to create a nice table of results, which
         # includes a 95% confident interval. I set the number of digits to 
